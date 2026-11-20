@@ -1,0 +1,47 @@
+{
+  "cik": "1234567",
+  "entityType": "operating",
+  "sic": "3571",
+  "sicDescription": "Electronic Computers",
+  "ownerOrg": "06 Technology",
+  "insiderTransactionForOwnerExists": 0,
+  "insiderTransactionForIssuerExists": 1,
+  "name": "Example Corp",
+  "tickers": ["EXMP", "EXMPW"],
+  "exchanges": ["Nasdaq", "Nasdaq"],
+  "ein": "000000000",
+  "description": "",
+  "website": "",
+  "investorWebsite": "",
+  "category": "Large accelerated filer",
+  "fiscalYearEnd": "0930",
+  "stateOfIncorporation": "DE",
+  "stateOfIncorporationDescription": "DE",
+  "addresses": {
+    "mailing": {"street1": "1 Example Way", "street2": null, "city": "Springfield", "stateOrCountry": "IL", "zipCode": "62701", "stateOrCountryDescription": "IL"},
+    "business": {"street1": "1 Example Way", "street2": null, "city": "Springfield", "stateOrCountry": "IL", "zipCode": "62701", "stateOrCountryDescription": "IL"}
+  },
+  "phone": "000-000-0000",
+  "flags": "",
+  "formerNames": [],
+  "filings": {
+    "recent": {
+      "accessionNumber": ["0001234567-24-000050", "0001234567-24-000010", "0001234567-24-000005", "0001234567-23-000045"],
+      "filingDate": ["2024-11-01", "2024-02-15", "2024-02-01", "2023-11-03"],
+      "reportDate": ["2024-09-30", "2023-09-30", "2023-12-31", "2023-09-30"],
+      "acceptanceDateTime": ["2024-11-01T16:05:12.000Z", "2024-02-15T16:01:00.000Z", "2024-02-01T16:30:00.000Z", "2023-11-03T16:04:00.000Z"],
+      "act": ["34", "34", "34", "34"],
+      "form": ["10-K", "10-K/A", "10-Q", "10-K"],
+      "fileNumber": ["001-00000", "001-00000", "001-00000", "001-00000"],
+      "filmNumber": ["241000001", "241000002", "241000003", "231000004"],
+      "items": ["", "", "", ""],
+      "core_type": ["10-K", "10-K/A", "10-Q", "10-K"],
+      "size": [9000000, 300000, 5000000, 8800000],
+      "isXBRL": [1, 1, 1, 1],
+      "isInlineXBRL": [1, 1, 1, 1],
+      "primaryDocument": ["exmp-20240930.htm", "exmp-20230930a.htm", "exmp-20231231.htm", "exmp-20230930.htm"],
+      "primaryDocDescription": ["10-K", "10-K/A", "10-Q", "10-K"]
+    },
+    "files": []
+  }
+}

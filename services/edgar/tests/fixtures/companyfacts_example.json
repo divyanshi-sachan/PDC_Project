@@ -1,0 +1,57 @@
+{
+  "cik": 1234567,
+  "entityName": "EXAMPLE CORP",
+  "facts": {
+    "dei": {
+      "EntityCommonStockSharesOutstanding": {
+        "label": "Entity Common Stock, Shares Outstanding",
+        "description": "Synthetic fixture.",
+        "units": {
+          "shares": [
+            {"end": "2024-10-15", "val": 15000000, "accn": "0001234567-24-000050", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2024-11-01", "frame": "CY2024Q3I"}
+          ]
+        }
+      }
+    },
+    "us-gaap": {
+      "Revenues": {
+        "label": "Revenues",
+        "description": "Synthetic fixture: FY2022 restated in the FY2024 10-K; FY2023 restated by a 10-K/A.",
+        "units": {
+          "USD": [
+            {"start": "2021-10-01", "end": "2022-09-30", "val": 100000000, "accn": "0001234567-22-000040", "fy": 2022, "fp": "FY", "form": "10-K", "filed": "2022-11-04"},
+            {"start": "2021-10-01", "end": "2022-09-30", "val": 100000000, "accn": "0001234567-23-000045", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2023-11-03"},
+            {"start": "2021-10-01", "end": "2022-09-30", "val": 105000000, "accn": "0001234567-24-000050", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2024-11-01", "frame": "CY2022"},
+            {"start": "2022-10-01", "end": "2023-09-30", "val": 120000000, "accn": "0001234567-23-000045", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2023-11-03"},
+            {"start": "2022-10-01", "end": "2023-09-30", "val": 120000000, "accn": "0001234567-23-000045", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2023-11-03"},
+            {"start": "2022-10-01", "end": "2023-09-30", "val": 121000000, "accn": "0001234567-24-000010", "fy": 2023, "fp": "FY", "form": "10-K/A", "filed": "2024-02-15"},
+            {"start": "2022-10-01", "end": "2023-09-30", "val": 121000000, "accn": "0001234567-24-000050", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2024-11-01", "frame": "CY2023"},
+            {"start": "2023-10-01", "end": "2024-09-30", "val": 130000000, "accn": "0001234567-24-000050", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2024-11-01", "frame": "CY2024"},
+            {"start": "2023-10-01", "end": "2023-12-31", "val": 31000000, "accn": "0001234567-24-000005", "fy": 2024, "fp": "Q1", "form": "10-Q", "filed": "2024-02-01", "frame": "CY2023Q4"},
+            {"start": "2023-10-01", "end": "2023-12-31", "val": 31000000, "accn": "0001234567-25-000005", "fy": 2025, "fp": "Q1", "form": "10-Q", "filed": "2025-02-01"}
+          ]
+        }
+      },
+      "Assets": {
+        "label": "Assets",
+        "description": "Synthetic fixture: instant facts (no start).",
+        "units": {
+          "USD": [
+            {"end": "2023-09-30", "val": 500000000, "accn": "0001234567-23-000045", "fy": 2023, "fp": "FY", "form": "10-K", "filed": "2023-11-03"},
+            {"end": "2023-09-30", "val": 500000000, "accn": "0001234567-24-000050", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2024-11-01", "frame": "CY2023Q3I"},
+            {"end": "2024-09-30", "val": 550000000, "accn": "0001234567-24-000050", "fy": 2024, "fp": "FY", "form": "10-K", "filed": "2024-11-01", "frame": "CY2024Q3I"}
+          ]
+        }
+      },
+      "EarningsPerShareBasic": {
+        "label": "Earnings Per Share, Basic",
+        "description": "Synthetic fixture: non-USD unit, null fy.",
+        "units": {
+          "USD/shares": [
+            {"start": "2023-10-01", "end": "2024-09-30", "val": 1.23, "accn": "0001234567-24-000050", "fy": null, "fp": null, "form": "10-K", "filed": "2024-11-01"}
+          ]
+        }
+      }
+    }
+  }
+}

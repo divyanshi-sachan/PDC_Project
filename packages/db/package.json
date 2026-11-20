@@ -1,0 +1,14 @@
+{
+  "name": "@dealpilot/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "dotenv": "^18.0.10",
+    "drizzle-orm": "^0.45.4",
+    "postgres": "^4.1.1"
+  }
+}

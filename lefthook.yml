@@ -1,0 +1,27 @@
+# Git hooks for humans (install: pnpm dlx lefthook install)
+pre-commit:
+  parallel: true
+  commands:
+    biome:
+      glob: "*.{ts,tsx,js,mjs,json,css}"
+      run: pnpm biome check --write --no-errors-on-unmatched {staged_files}
+      stage_fixed: true
+    ruff:
+      glob: "services/**/*.py"
+      root: "services/edgar/"
+      run: uv run ruff check --fix {staged_files} && uv run ruff format {staged_files}
+      stage_fixed: true
+    gitleaks:
+      run: gitleaks protect --staged --redact --no-banner
+    finance-purity:
+      glob: "packages/finance/src/**/*.ts"
+      run: node .claude/hooks/check_finance_purity.mjs {staged_files}
+pre-push:
+  commands:
+    typecheck:
+      run: pnpm typecheck
+    test:
+      run: pnpm test
+    edgar-service:
+      root: "services/edgar/"
+      run: uv run mypy src && uv run pytest -q

@@ -1,0 +1,1316 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DealPilot edgar-service",
+    "description": "SEC EDGAR filings, XBRL facts and standardized statements via edgartools. Every fact and statement column carries accession, form and filed date.",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Health"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/companies/{ticker}": {
+      "get": {
+        "tags": [
+          "companies"
+        ],
+        "summary": "Get Company",
+        "operationId": "getCompany",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12,
+              "pattern": "^[A-Za-z0-9.\\-]+$",
+              "title": "Ticker"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Company"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Service-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ticker, concept or accession",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SEC/edgartools failure or missing provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/companies/{ticker}/filings": {
+      "get": {
+        "tags": [
+          "filings"
+        ],
+        "summary": "List Filings",
+        "description": "Most recent filings first (amendments included).",
+        "operationId": "listFilings",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12,
+              "pattern": "^[A-Za-z0-9.\\-]+$",
+              "title": "Ticker"
+            }
+          },
+          {
+            "name": "form",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "10-K"
+              ],
+              "title": "Form"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 5,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Filing"
+                  },
+                  "title": "Response Listfilings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Service-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ticker, concept or accession",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SEC/edgartools failure or missing provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/companies/{ticker}/facts": {
+      "get": {
+        "tags": [
+          "facts"
+        ],
+        "summary": "Get Facts",
+        "description": "Raw XBRL facts (SEC companyfacts), deduped to the latest-filed value per period.\n\n``restated``/``original_value`` show where a later filing changed the first-filed\nvalue. ``all_versions=true`` returns every reported version instead.",
+        "operationId": "getFacts",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12,
+              "pattern": "^[A-Za-z0-9.\\-]+$",
+              "title": "Ticker"
+            }
+          },
+          {
+            "name": "concept",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 200,
+              "pattern": "^([A-Za-z0-9\\-]+:)?[A-Za-z0-9_]+$",
+              "examples": [
+                "us-gaap:Revenues"
+              ],
+              "title": "Concept"
+            }
+          },
+          {
+            "name": "form",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 20
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "examples": [
+                "10-K"
+              ],
+              "title": "Form"
+            }
+          },
+          {
+            "name": "all_versions",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "All Versions"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FactsResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Service-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ticker, concept or accession",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SEC/edgartools failure or missing provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/companies/{ticker}/statements": {
+      "get": {
+        "tags": [
+          "statements"
+        ],
+        "summary": "Get Statement",
+        "description": "Standardized statement (edgartools), one column per 10-K (annual) or 10-Q (quarterly).\n\nEach column is that filing's current period and carries its accession, form and\nfiled date. Values are raw XBRL instance values (no presentation sign flips).",
+        "operationId": "getStatement",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ticker",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 12,
+              "pattern": "^[A-Za-z0-9.\\-]+$",
+              "title": "Ticker"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": [
+                "income",
+                "balance",
+                "cashflow"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "annual",
+                "quarterly"
+              ],
+              "type": "string",
+              "default": "annual",
+              "title": "Period"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 12,
+              "minimum": 1,
+              "default": 4,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Statement"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Service-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ticker, concept or accession",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SEC/edgartools failure or missing provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/filings/{accession}/sections": {
+      "get": {
+        "tags": [
+          "sections"
+        ],
+        "summary": "Get Sections",
+        "description": "Text of the requested 10-K items. Items the filing does not contain are omitted;\n404 if none of them are found.",
+        "operationId": "getSections",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "accession",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{10}-\\d{2}-\\d{6}$",
+              "title": "Accession"
+            }
+          },
+          {
+            "name": "items",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "examples": [
+                "1,1A,7,7A,8"
+              ],
+              "default": "1,1A,7,7A,8",
+              "title": "Items"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Section"
+                  },
+                  "title": "Response Getsections"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Service-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ticker, concept or accession",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SEC/edgartools failure or missing provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/search": {
+      "get": {
+        "tags": [
+          "search"
+        ],
+        "summary": "Search",
+        "description": "EDGAR full-text search (efts.sec.gov) via edgartools ``search_filings``.",
+        "operationId": "searchFilings",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 500,
+              "title": "Q"
+            }
+          },
+          {
+            "name": "forms",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Comma-separated form types",
+              "examples": [
+                "10-K,10-Q"
+              ],
+              "title": "Forms"
+            },
+            "description": "Comma-separated form types"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SearchHit"
+                  },
+                  "title": "Response Searchfilings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or wrong X-Service-Key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown ticker, concept or accession",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "SEC/edgartools failure or missing provenance",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "Company": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "pattern": "^\\d{10}$",
+            "title": "Cik",
+            "description": "10-digit zero-padded CIK"
+          },
+          "ticker": {
+            "type": "string",
+            "title": "Ticker"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "sic": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sic"
+          },
+          "sic_description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sic Description"
+          },
+          "fiscal_year_end": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year End",
+            "description": "MMDD, e.g. 0927"
+          },
+          "exchanges": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Exchanges"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cik",
+          "ticker",
+          "name",
+          "sic",
+          "sic_description",
+          "fiscal_year_end",
+          "exchanges"
+        ],
+        "title": "Company"
+      },
+      "ErrorBody": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Machine-readable code, e.g. not_found, upstream_error"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "ErrorBody"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorBody"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "title": "ErrorResponse"
+      },
+      "FactsResponse": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "concept": {
+            "type": "string",
+            "title": "Concept"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/XbrlFact"
+            },
+            "type": "array",
+            "title": "Facts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cik",
+          "concept",
+          "facts"
+        ],
+        "title": "FactsResponse"
+      },
+      "Filing": {
+        "properties": {
+          "accession": {
+            "type": "string",
+            "title": "Accession",
+            "description": "Accession number, 0000320193-24-000123"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "filed": {
+            "type": "string",
+            "format": "date",
+            "title": "Filed"
+          },
+          "period_of_report": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Of Report"
+          },
+          "primary_document_url": {
+            "type": "string",
+            "title": "Primary Document Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accession",
+          "form",
+          "filed",
+          "period_of_report",
+          "primary_document_url"
+        ],
+        "title": "Filing"
+      },
+      "Health": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok",
+            "title": "Status"
+          },
+          "edgartools_version": {
+            "type": "string",
+            "title": "Edgartools Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "status",
+          "edgartools_version"
+        ],
+        "title": "Health"
+      },
+      "SearchHit": {
+        "properties": {
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form"
+          },
+          "filed": {
+            "type": "string",
+            "format": "date",
+            "title": "Filed"
+          },
+          "company": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Company"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "snippet": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Snippet",
+            "description": "EDGAR full-text search returns no snippets: null"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accession",
+          "form",
+          "filed",
+          "company",
+          "cik",
+          "url",
+          "snippet"
+        ],
+        "title": "SearchHit"
+      },
+      "Section": {
+        "properties": {
+          "accession": {
+            "type": "string",
+            "title": "Accession"
+          },
+          "item": {
+            "type": "string",
+            "title": "Item",
+            "description": "10-K item number, e.g. 1A"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "URL of the primary document the text was extracted from"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "accession",
+          "item",
+          "title",
+          "text",
+          "url"
+        ],
+        "title": "Section"
+      },
+      "Statement": {
+        "properties": {
+          "cik": {
+            "type": "string",
+            "title": "Cik"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "income",
+              "balance",
+              "cashflow"
+            ],
+            "title": "Kind"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "annual",
+              "quarterly"
+            ],
+            "title": "Period"
+          },
+          "columns": {
+            "items": {
+              "$ref": "#/components/schemas/StatementColumn"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "lines": {
+            "items": {
+              "$ref": "#/components/schemas/StatementLine"
+            },
+            "type": "array",
+            "title": "Lines"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "cik",
+          "kind",
+          "period",
+          "columns",
+          "lines"
+        ],
+        "title": "Statement"
+      },
+      "StatementColumn": {
+        "properties": {
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year"
+          },
+          "fiscal_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Period"
+          },
+          "accession": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Accession"
+          },
+          "form": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Form"
+          },
+          "filed": {
+            "type": "string",
+            "format": "date",
+            "title": "Filed"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "period_start",
+          "period_end",
+          "fiscal_year",
+          "fiscal_period",
+          "accession",
+          "form",
+          "filed"
+        ],
+        "title": "StatementColumn",
+        "description": "One period of a statement, taken from exactly one filing (its provenance)."
+      },
+      "StatementLine": {
+        "properties": {
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "concept": {
+            "type": "string",
+            "title": "Concept",
+            "description": "Concept as filed, e.g. us-gaap:Revenues"
+          },
+          "standard_concept": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Standard Concept",
+            "description": "edgartools standardized concept"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "Unit summary from edgartools, e.g. usd; null if unknown"
+          },
+          "values": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Values",
+            "description": "Aligned with Statement.columns"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "label",
+          "concept",
+          "standard_concept",
+          "unit",
+          "values"
+        ],
+        "title": "StatementLine"
+      },
+      "XbrlFact": {
+        "properties": {
+          "concept": {
+            "type": "string",
+            "title": "Concept",
+            "description": "Prefixed concept, e.g. us-gaap:Revenues"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit",
+            "description": "XBRL unit as reported, e.g. USD, shares, USD/shares"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start",
+            "description": "Null for instant (balance-sheet) facts"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date",
+            "title": "Period End"
+          },
+          "fiscal_year": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Year",
+            "description": "Fiscal year of the filing that first reported this period (SEC fy)"
+          },
+          "fiscal_period": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Fiscal Period",
+            "description": "FY, Q1, Q2, Q3 (SEC fp)"
+          },
+          "form": {
+            "type": "string",
+            "title": "Form",
+            "description": "Form of the filing this value comes from"
+          },
+          "accession": {
+            "type": "string",
+            "title": "Accession",
+            "description": "Accession of the filing this value comes from"
+          },
+          "filed": {
+            "type": "string",
+            "format": "date",
+            "title": "Filed",
+            "description": "Filing date of the filing this value comes from"
+          },
+          "frame": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Frame",
+            "description": "SEC calendar frame, e.g. CY2023, CY2023Q4I"
+          },
+          "restated": {
+            "type": "boolean",
+            "title": "Restated",
+            "description": "True when a later filing changed the first-filed value"
+          },
+          "original_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original Value",
+            "description": "First-filed value when restated, else null"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "concept",
+          "label",
+          "value",
+          "unit",
+          "period_start",
+          "period_end",
+          "fiscal_year",
+          "fiscal_period",
+          "form",
+          "accession",
+          "filed",
+          "frame",
+          "restated",
+          "original_value"
+        ],
+        "title": "XbrlFact",
+        "description": "One reported XBRL value with full provenance (from SEC companyfacts)."
+      }
+    },
+    "securitySchemes": {
+      "APIKeyHeader": {
+        "type": "apiKey",
+        "description": "Required on every route except /health when EDGAR_SERVICE_KEY is set",
+        "in": "header",
+        "name": "X-Service-Key"
+      }
+    }
+  }
+}

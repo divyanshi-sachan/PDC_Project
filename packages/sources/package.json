@@ -1,0 +1,16 @@
+{
+  "name": "@dealpilot/sources",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@dealpilot/db": "workspace:*",
+    "@dealpilot/shared": "workspace:*",
+    "drizzle-orm": "^0.45.4",
+    "openapi-fetch": "^0.17.0",
+    "zod": "^4.6.7"
+  }
+}

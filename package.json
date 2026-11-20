@@ -1,0 +1,35 @@
+{
+  "name": "dealpilot",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:live": "DEALPILOT_LIVE=1 vitest run --project live",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "check": "biome check --write .",
+    "lint": "biome check .",
+    "cli": "tsx apps/cli/src/index.ts",
+    "db:generate": "drizzle-kit generate --config packages/db/drizzle.config.ts",
+    "db:migrate": "drizzle-kit migrate --config packages/db/drizzle.config.ts",
+    "gen:edgar": "pnpm dlx --package openapi-typescript@7.13.0 --package typescript@5.9 openapi-typescript services/edgar/openapi.json -o packages/sources/src/edgar/schema.gen.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.8",
+    "@types/node": "^26.6.6",
+    "drizzle-kit": "^0.31.11",
+    "fast-check": "^4.10.2",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@neon/config": "^1.14.1",
+    "@neon/env": "^2.1.4",
+    "dotenv": "^18.0.10"
+  }
+}

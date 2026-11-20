@@ -1,0 +1,58 @@
+[project]
+name = "edgar-service"
+version = "0.1.0"
+description = "DealPilot SEC EDGAR service: FastAPI wrapper around edgartools"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "edgartools>=6.3.0",
+    "fastapi[standard]>=0.163.2",
+    "httpx>=0.28.1",
+    "pydantic>=2",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.28,<0.12.0"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "edgar_service"
+
+[dependency-groups]
+dev = [
+    "mypy>=2.4.1",
+    "pytest>=9.2.0",
+    "respx>=0.23.1",
+    "ruff>=0.17.5",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF", "N", "S", "PT"]
+# N818: our HTTP error classes are named for the response (NotFound, Unauthorized).
+ignore = ["N818"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+packages = ["edgar_service"]
+mypy_path = "src"
+warn_unused_ignores = true
+# edgartools ships py.typed but large parts of it are unannotated; only
+# sec_client.py calls into it, and it converts everything to our own types.
+untyped_calls_exclude = ["edgar"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not live' --strict-markers"
+markers = [
+    "live: hits the real SEC EDGAR API (opt-in, run with -m live; blocked by a repo hook for agents)",
+]
+filterwarnings = ["ignore::DeprecationWarning"]

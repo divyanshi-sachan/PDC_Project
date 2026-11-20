@@ -1,0 +1,36 @@
+# secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# node
+node_modules/
+.next/
+out/
+
+# data & outputs
+data/
+evals/runs/
+outputs/
+*.xlsx
+!evals/golden/**/*.xlsx
+!backend/tests/fixtures/**/*.xlsx
+
+# local claude settings
+.claude/settings.local.json
+
+# os
+.DS_Store
+.neon
