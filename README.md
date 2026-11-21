@@ -29,6 +29,36 @@ LLMs handle the reading and writing well. They are **unreliable at arithmetic an
 
 ---
 
+## How you use it: chat + deliverable panel
+
+DealPilot is a **chat app**. You ask in plain language, the agents work visibly in the thread, and the results build up in a side panel.
+
+```
+┌──────────────────────────────────┬──────────────────────────────────────────┐
+│ CHAT                             │ DELIVERABLE PANEL                        │
+│                                  │                                          │
+│ You: Value Apple with a DCF and  │  Apple Inc. (AAPL) · FY2026 10-K         │
+│      comps                       │  EV $X.XXT · $XXX/share (base)           │
+│                                  │  ┌ DCF ┬ Comps ┬ Sensitivity ┬ Risks ┐   │
+│ ▸ Reading 10-K (filed 2026-11-03)│  │ WACC × g grid … live table          │   │
+│ ▸ 42 facts extracted, all cited  │  └─────────────────────────────────────┘   │
+│ ▸ Building DCF + 6 peers         │  Evidence: click any number → the exact  │
+│ ▸ Verifier: 2 issues → fixed     │  filing quote it came from               │
+│                                  │                                          │
+│ DealPilot: Base case $XXX/share… │  [Download .xlsx]  [Download memo]       │
+│                                  │                                          │
+│ You: What if WACC is 9%?         │  (panel updates; only the finance code   │
+│                                  │   reruns, so it's near-instant and free) │
+└──────────────────────────────────┴──────────────────────────────────────────┘
+```
+
+- **Ask anything about a company:** "Value Nvidia", "What are the main risks in Tesla's last 10-K?", "Compare Apple's margins with Microsoft".
+- **Watch the agents work:** each step streams into the chat (SSE), including what the Verifier caught and fixed.
+- **Follow-ups are cheap:** "Use 9% WACC", "Drop Dell from peers" or "Show the bear case" rerun only the deterministic finance code. Nothing is re-read.
+- **Every number is clickable** in both the chat and the panel, and opens its source quote.
+- **The panel holds the deliverables:** valuation summary, DCF, comps, sensitivity heatmap, risk list, evidence viewer, defects, and downloads for the Excel model and the memo.
+- An `/admin` page (owner only) shows eval scores, cost and latency per run. It is a developer view, not the product.
+
 ## Features
 
 ### 1. Company Research Agent
@@ -54,7 +84,7 @@ LLMs handle the reading and writing well. They are **unreliable at arithmetic an
 
 - Recomputes every figure through the deterministic library and compares the results against what is reported.
 - Checks that each citation resolves to a real document span and that the quote supports the claim.
-- Checks model integrity (balance-sheet balances, cash ties out, no hard-coded values) and consistency between the workbook, the memo, and the dashboard.
+- Checks model integrity (balance-sheet balances, cash ties out, no hard-coded values) and consistency between the workbook, the memo, and what the chat and panel show.
 - **Sends errors back** to the responsible agent with a structured defect report. This loop has a limit on retries. Anything still unresolved is flagged in the deliverable, never hidden.
 
 ### 5. Deliverable & Audit Agent
@@ -88,7 +118,7 @@ LLMs handle the reading and writing well. They are **unreliable at arithmetic an
         │        │ defects → back to the source agent   │
         └────────┼─────────────────────────────────────┘
                  ▼
-     Auditable Excel model  ·  Deal memo  ·  Next.js dashboard
+     Chat answers (cited)  ·  Deliverable panel  ·  Excel model  ·  Deal memo
 ```
 
 **Runtime layout.** DealPilot is a TypeScript core with two Python services, chosen where Python has the better library:
@@ -128,7 +158,7 @@ LLMs handle the reading and writing well. They are **unreliable at arithmetic an
 | Data               | SEC EDGAR via edgar-service, Treasury/FRED, Damodaran                                                                                                                                                                                                 |
 | Documents          | edgartools (filing sections and text), ExcelJS (workbook), docx (memo)                                                                                                                                                                                |
 | Database           | PostgreSQL 16 + pgvector (`halfvec`, HNSW) + `tsvector` hybrid search, Drizzle ORM                                                                                                                                                                    |
-| Frontend           | **Next.js** (App Router), TypeScript, Tailwind CSS, TanStack Query, Recharts                                                                                                                                                                          |
+| Frontend           | **Next.js** chat app (App Router): chat thread + deliverable side panel, TypeScript, Tailwind CSS, TanStack Query, Recharts                                                                                                                                                                          |
 | LLM providers      | Free tiers (Gemini, Groq, OpenRouter) for producer agents; **Anthropic Claude** Sonnet 5.5 for the verifier, skeptic and writer, and Haiku 5.5 as fallback                                                                                            |
 | Market data        | Free tiers (FMP / Tiingo), cached. Treasury/FRED for rates, Damodaran for ERP and betas                                                                                                                                                               |
 | Hosting            | **AWS Free plan**: one EC2 `t4g.small` with Docker Compose (API + worker, edgar-service, LiteLLM, Caddy), paid from credits. **Neon** provides Postgres + pgvector, Managed Better Auth and object storage. **Vercel Hobby** hosts Next.js |
@@ -144,7 +174,7 @@ dealpilot/
 ├── apps/
 │   ├── api/                 # Express 5 server: routes, SSE, auth, artifact download
 │   ├── worker/              # pg-boss consumer that runs the LangGraph.js graph
-│   └── web/                 # Next.js dashboard
+│   └── web/                 # Next.js chat app (thread + deliverable panel, /admin evals)
 ├── packages/
 │   ├── agents/              # orchestrator, research, modeling, forensic, skeptic, verifier, deliverable
 │   ├── graph/               # LangGraph state, nodes, edges, retry/defect routing
@@ -213,7 +243,7 @@ pnpm cli analyze --ticker AAPL --task "standalone DCF + comps"
 | **M3**    | Verification loop with defect routing, plus the Forensic and Skeptic agents                      |
 | **M4**    | Excel workbook, deal memo, audit trail                                                           |
 | **M5**    | Eval harness (BankerToolBench, SECQUE, FailSafeQA, Fin-RATE) with cost and latency tracking      |
-| **M6**    | Express API hardening, Next.js dashboard, AWS EC2 + Vercel deployment                            |
+| **M6**    | Next.js chat app + deliverable panel, AWS EC2 + Vercel deployment                            |
 
 ---
 

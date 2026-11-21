@@ -3,7 +3,7 @@
 These rules are for any AI coding agent working in this repo (Claude Code, Codex, Cursor and others).
 Read `README.md` for what the product is, `docs/PLAN.md` for the build plan, and `docs/research/` for the stack decisions.
 
-**Stack:** TypeScript (strict) on Node.js 24, pnpm workspaces. The backend is Express 5, the agents are LangGraph.js, the frontend is Next.js + Tailwind, and the database is Postgres + pgvector via Drizzle.
+**Stack:** TypeScript (strict) on Node.js 24, pnpm workspaces. The backend is Express 5, the agents are LangGraph.js, the frontend is a Next.js + Tailwind **chat app with a deliverable side panel**, and the database is Postgres + pgvector via Drizzle.
 There are also **two Python services**:
 
 - `services/edgar`: FastAPI + edgartools, for SEC data.
@@ -41,6 +41,12 @@ There are also **two Python services**:
 - **Monorepo boundaries:**
   - `apps/api` (Express) and `apps/worker` depend on `packages/*`. They reach `services/edgar` and LiteLLM over HTTP only.
   - `apps/web` depends only on `@dealpilot/shared` and talks to the API over HTTP/SSE.
+- **UI model: chat-first.**
+  - Chat (left) shows the user's messages, streamed agent steps and short cited answers.
+  - The deliverable panel (right) shows structured results: Summary, DCF, Comps, Sensitivity, Risks, Evidence, Defects, and downloads.
+  - Never render big tables or models as chat text; put them in the panel.
+  - Every number in chat or panel links to its `Evidence` or `CalcResult`.
+  - A follow-up that only changes assumptions (WACC, peers, scenario) reruns finance tools on cached facts, with no LLM reading.
   - `packages/finance` depends on nothing internal.
 - **Express:**
   - every route validates `req.body`/`req.query` with a Zod schema from `@dealpilot/shared`

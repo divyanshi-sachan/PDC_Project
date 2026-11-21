@@ -1,7 +1,7 @@
 # DealPilot — build plan (v2, draft for approval)
 
 Based on [the stack research](research/reports/DealPilot%20low%20cost%20stack.md) and [the benchmark alternatives](research/benchmark_alternatives.md), November 2026.
-**Changes in v2:** the backend is **Node.js + Express (TypeScript)** and the frontend is **Next.js**. The custom 133-question set is replaced by **public benchmarks: SECQUE + FailSafeQA + Fin-RATE**.
+**Changes in v2:** the backend is **Node.js + Express (TypeScript)** and the frontend is a **Next.js chat app with a deliverable side panel**. The custom 133-question set is replaced by **public benchmarks: SECQUE + FailSafeQA + Fin-RATE**.
 **v2.1:** two **Python services** are added where Python has the better library: **edgar-service** (FastAPI + edgartools) and the **LiteLLM proxy**. Valuation math stays TypeScript only.
 **v2.3: this is a portfolio/learning project, not a product.** There are no real users and no confidential deal data. So we target **$0 out-of-pocket hosting: the AWS Free plan's credits for the first ~6 months, then Render + Neon free**, use free market data (no display licence to buy), and drop the confidential-data routing. The only real cost is Anthropic usage, about $5–15/month.
 Principle: **build and host at $0. The only paid service is the Anthropic API, spent mainly on the verifier.**
@@ -24,7 +24,7 @@ Principle: **build and host at $0. The only paid service is the Anthropic API, s
 | DB | **Neon** Postgres + pgvector (`halfvec` + HNSW) + `tsvector`, **Drizzle ORM** (pooled URL for the app, direct URL for migrations) | Hybrid search fused with RRF. Drizzle supports pgvector natively |
 | Embeddings / rerank | Voyage free tokens (voyage-4-lite) **or** local via Ollama (EmbeddingGemma / Qwen3-Embedding); bge-reranker via Ollama or Voyage rerank-lite | Free. Local means no data leaves the machine |
 | Deliverables | **ExcelJS** (live formulas), `docx` (memo), parity check through LibreOffice headless in CI | |
-| Frontend | **Next.js** (App Router) + Tailwind + TanStack Query + Recharts | Your choice |
+| Frontend | **Next.js chat app** (App Router): chat thread on the left, deliverable panel on the right. Tailwind + TanStack Query + Recharts | Chat is the product; tables and models need a panel, not chat text |
 | Observability | Langfuse (JS SDK), Cloud Hobby tier | Free, with native LangChain.js callbacks |
 | Tooling | TS: Biome, Vitest · Python: uv, ruff, mypy, pytest · Lefthook + gitleaks, GitHub Actions | |
 
@@ -63,7 +63,7 @@ Principle: **build and host at $0. The only paid service is the Anthropic API, s
 | Piece | Where | Approx. cost to credits | Note |
 |---|---|---|---|
 | `api` (Express + pg-boss worker), `edgar-service`, `litellm`, Caddy (TLS). **DB, auth and files are on Neon** | **One EC2 `t4g.small`** (2 vCPU ARM, 2 GB RAM + 2 GB swap) running Docker Compose | ~$12/mo instance + ~$1.60 for 20 GB gp3 EBS + ~$3.60 public IPv4 ≈ **$17/mo** | Always on, so there's no spin-down and long jobs just run. With Postgres on Neon, the 2 GB box has more headroom and needs no RDS |
-| Next.js dashboard | **Vercel Hobby** | $0 | Hobby is non-commercial only, which fits a portfolio project. It's also the best host for Next.js |
+| Next.js chat app | **Vercel Hobby** | $0 | Hobby is non-commercial only, which fits a portfolio project. It's also the best host for Next.js |
 | Artifacts (.xlsx/.docx) | **Neon Object Storage** (`assets` bucket, presigned downloads) | $0 (Neon Free) | |
 | Auth | **Neon Managed Better Auth** (email + password) | $0 (Neon Free) | |
 | Domain / TLS | Caddy + a free subdomain (sslip.io or DuckDNS) | $0 | |
@@ -127,11 +127,21 @@ Each milestone ends with green offline tests and a short demo command.
 - **Done when:** `pnpm cli facts AAPL` prints cited facts, and the finance tests are 100% green.
 
 ### M2: Express API, worker, gateway, Research and Modeling agents (≈1.5 weeks)
-- `apps/api`: `POST /tasks`, `GET /tasks/:id`, `GET /tasks/:id/events` (SSE), and `GET /artifacts/:id`, with Zod-validated routes and an error middleware.
+- `apps/api` (chat API, auth-protected via `@dealpilot/auth`):
+  - `POST /threads` and `GET /threads`
+  - `POST /threads/:id/messages`, which enqueues a task
+  - `GET /threads/:id/events` (SSE: agent steps, tokens, panel updates)
+  - `GET /artifacts/:id` (presigned download)
+  - Zod-validated routes and one error middleware
+- `packages/db`: new `threads` and `messages` tables, linked to the Neon Auth user id. Each message links to its task, trace and artifacts.
+- **Orchestrator intent routing** sorts each chat message into one of three types:
+  - (a) a new analysis, which runs the full graph
+  - (b) a follow-up recompute, such as a different WACC or peers; it reruns only the finance tools on cached facts, with no LLM reading
+  - (c) a question about evidence, which is RAG over the cited chunks
 - `apps/worker`: a pg-boss consumer that runs the graph with the Postgres checkpointer.
 - `packages/llm`: client for LiteLLM model groups per role, structured output with Zod, response cache, budget cap, and Langfuse tracing.
 - `packages/graph` + agents: Orchestrator, Research (facts + evidence), and Modeling (tool calls into finance; peers by SIC, size and 10-K text similarity).
-- **Done when:** `POST /tasks {ticker:"AAPL"}` produces a DCF + comps in state with a full trace, at ≤ $0.05 on the free or budget stack.
+- **Done when:** posting "Value Apple with a DCF and comps" to a thread streams agent steps over SSE and ends with a cited answer and a DCF + comps in state, at ≤ $0.05 on the free or budget stack. A follow-up "What if WACC is 9%?" recomputes with zero LLM reading.
 
 ### M3: Verification loop, Forensic and Skeptic agents (≈1–1.5 weeks)
 - A Verifier with a fresh context. It recomputes figures through finance, resolves citations to spans and checks the quotes support the claims, and runs integrity and consistency checks.
@@ -147,15 +157,23 @@ Each milestone ends with green offline tests and a short demo command.
 - An `evals/` runner with `--estimate`, `compare`, and the live-run guard. Adapters for BTB, SECQUE, FailSafeQA and Fin-RATE, plus the internal slices.
 - A model-per-role bake-off that picks the cheapest model passing each node's quality bar.
 
-### M6: Next.js dashboard and deployment (≈1.5 weeks)
-- Dashboard screens: task launcher, live agent timeline (SSE), valuation view with sensitivity heatmap, evidence viewer (click a number to see its source quote), defects panel, and eval/cost dashboard.
+### M6: Next.js chat app, deliverable panel and deployment (≈1.5–2 weeks)
+- **Chat (left):**
+  - thread list, plus sign-up and sign-in (Neon Auth)
+  - streaming messages, with agent steps shown as collapsible progress items
+  - suggested follow-ups
+  - every number rendered as a citation chip that opens the source quote
+- **Deliverable panel (right):** opens with the first result and updates live.
+  - tabs: Summary · DCF · Comps · Sensitivity (heatmap) · Risks · Evidence · Defects
+  - downloads for the `.xlsx` and the memo
+- **`/admin` (owner only):** eval scores, cost and latency per run. This replaces the old "dashboard" idea.
 - Deployment, AWS:
   - `infra/docker-compose.prod.yml` (arm64 images, Caddy TLS, health checks, restart policies) and an EC2 bootstrap script (Docker, swap, compose up).
   - GitHub Actions deploy over SSH (or SSM), and AWS Budgets alerts.
   - Next.js on Vercel.
 - Portability: a `render.yaml` kept ready for the post-credits move, plus the warm-up and heartbeat logic for free-tier hosts.
 - Market-price adapter (FMP free, Tiingo fallback), with a Postgres cache, source attribution, and a "demo / not investment advice" banner.
-- **Done when:** the public Vercel URL, backed by EC2, runs an AAPL analysis end to end, and the dashboard shows the price, DCF, evidence and defects.
+- **Done when:** the public Vercel URL, backed by EC2, runs an AAPL analysis end to end, and the chat answer and the panel show the price, DCF, comps, evidence and defects. A follow-up message updates the panel.
 
 **Total:** about 7–9 weeks for one developer with Claude Code. Using edgartools removes the week we would have spent building our own XBRL normalizer. M1–M4 is the minimum demo.
 
@@ -165,7 +183,7 @@ Each milestone ends with green offline tests and a short demo command.
 
 | Decision | Choice |
 |---|---|
-| Backend / frontend | Node.js + Express (TS) / Next.js |
+| Backend / frontend | Node.js + Express (TS) / **Next.js chat app with a deliverable side panel** |
 | Python services | edgar-service (edgartools), LiteLLM proxy |
 | Benchmarks | BankerToolBench, SECQUE, FailSafeQA, Fin-RATE + a small restatement slice |
 | Project type | Portfolio / learning project: no real users, public SEC data only |
