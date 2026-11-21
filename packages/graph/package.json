@@ -1,0 +1,22 @@
+{
+  "name": "@dealpilot/graph",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@dealpilot/agents": "workspace:*",
+    "@dealpilot/db": "workspace:*",
+    "@dealpilot/finance": "workspace:*",
+    "@dealpilot/llm": "workspace:*",
+    "@dealpilot/market": "workspace:*",
+    "@dealpilot/shared": "workspace:*",
+    "@dealpilot/sources": "workspace:*",
+    "@langchain/core": "^1.4.2",
+    "@langchain/langgraph": "^1.7.5",
+    "@langchain/langgraph-checkpoint-postgres": "^1.1.4",
+    "zod": "^4.6.7"
+  }
+}

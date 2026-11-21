@@ -1,0 +1,21 @@
+{
+  "name": "@dealpilot/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@dealpilot/agents": "workspace:*",
+    "@dealpilot/db": "workspace:*",
+    "@dealpilot/graph": "workspace:*",
+    "@dealpilot/llm": "workspace:*",
+    "@dealpilot/shared": "workspace:*",
+    "@dealpilot/sources": "workspace:*",
+    "@dealpilot/storage": "workspace:*",
+    "@langchain/langgraph-checkpoint-postgres": "^1.1.4",
+    "dotenv": "^18.0.10",
+    "pg-boss": "^12.38.2"
+  },
+  "scripts": {
+    "start": "tsx src/index.ts"
+  }
+}

@@ -8,6 +8,8 @@ import { parseArgs } from "node:util";
 import type { Fact } from "@dealpilot/shared";
 import { config } from "dotenv";
 import { authSmoke } from "./auth.ts";
+import { chatLocal } from "./chat.ts";
+import { llmSmoke } from "./llm.ts";
 import { storageSmoke } from "./storage.ts";
 
 // `.env.local` (neon env pull) overrides `.env`.
@@ -88,8 +90,10 @@ async function main() {
   if (cmd === "facts" && arg) return facts(arg.toUpperCase(), values.form, Number(values.years));
   if (cmd === "auth" && arg === "smoke") return authSmoke(values.email);
   if (cmd === "storage" && arg === "smoke") return storageSmoke();
+  if (cmd === "llm" && arg === "smoke") return llmSmoke();
+  if (cmd === "chat" && arg) return chatLocal(positionals.slice(1));
   console.error(
-    "usage:\n  pnpm cli facts <TICKER> [--form 10-K|10-Q] [--years 3]\n  pnpm cli auth smoke [--email x]\n  pnpm cli storage smoke",
+    'usage:\n  pnpm cli facts <TICKER> [--form 10-K|10-Q] [--years 3]\n  pnpm cli auth smoke [--email x]\n  pnpm cli storage smoke\n  pnpm cli llm smoke\n  pnpm cli chat "<message>" ["<message>" ...]',
   );
   process.exitCode = 2;
 }

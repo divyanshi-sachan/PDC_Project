@@ -1,11 +1,10 @@
-# LiteLLM proxy — one model group per agent role. Free tiers first; Anthropic as the
-# paid fallback / verifier family. App code calls model names like "dp-research".
-#
-# NOTE (M2): exact provider model ids below must be confirmed against each provider's
-# model list when the gateway is wired up; limits are from docs/research (2026-11-17).
+# LiteLLM proxy — one model group per agent role. Model ids verified against each
+# provider's /models endpoint on 2026-11-21 with the project's own keys.
+# App code only ever uses the group names below ("dp-producer", ...).
 
 model_list:
   # ---------- producers: research / modeling / forensic / orchestrator ----------
+  # Free tiers first (public SEC text only). LiteLLM load-balances and cools down on 429.
   - model_name: dp-producer
     litellm_params:
       model: gemini/gemini-3.1-flash-lite
@@ -20,18 +19,18 @@ model_list:
     model_info: { family: gpt-oss }
   - model_name: dp-producer
     litellm_params:
-      model: openrouter/openai/gpt-oss-120b:free
+      model: openrouter/google/gemma-4-31b-it:free
       api_key: os.environ/OPENROUTER_API_KEY
       rpm: 20
-    model_info: { family: gpt-oss }
+    model_info: { family: gemma }
 
-  # Paid fallback for producers (Claude Haiku 5.5).
+  # Paid fallback for producers.
   - model_name: dp-producer-paid
     litellm_params:
       model: anthropic/claude-haiku-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
 
-  # ---------- verifier / skeptic / writer (cross-family vs producers) ----------
+  # ---------- verifier / skeptic / writer (different family from the free producers) ----------
   - model_name: dp-verifier
     litellm_params:
       model: anthropic/claude-sonnet-5-5
@@ -40,6 +39,12 @@ model_list:
     litellm_params:
       model: anthropic/claude-haiku-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
+
+  # ---------- embeddings (free Gemini tier, public SEC text only) ----------
+  - model_name: dp-embed
+    litellm_params:
+      model: gemini/gemini-embedding-001
+      api_key: os.environ/GEMINI_API_KEY
 
 router_settings:
   routing_strategy: usage-based-routing-v2

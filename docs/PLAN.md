@@ -36,7 +36,7 @@ Principle: **build and host at $0. The only paid service is the Anthropic API, s
 | Deliverable writer (memo prose) | Claude Sonnet 5.5 | Haiku 5.5 |
 | Web research | Tavily (1k/mo free), Exa ($10/mo free credit), `ddgs` throttled | none needed |
 | Fundamentals / macro | edgar-service (EDGAR), Treasury yield feed, FRED, Damodaran | none |
-| Market prices | **Free:** FMP free (250 calls/day) or Tiingo free, cached in Postgres. Shown with a source attribution and a "demo / not investment advice" label | yfinance as a fallback |
+| Market prices | **Under review.** FMP free serves only a fixed ~87-symbol allow-list and bars public display of its data; see [docs/research/reports/FMP free plan coverage.md](research/reports/FMP%20free%20plan%20coverage.md). Direction: shares, sector and peer candidates from SEC EDGAR; one dated closing price behind a swappable adapter; user-confirmed price for the public demo | Paid display rights only if needed (Twelve Data Grow $79/mo is the cheapest published) |
 
 **Cross-family note:** the producers run on non-Claude models and the verifier runs on Claude, so their errors stay uncorrelated. When a producer step falls back to Haiku, the verifier still recomputes every number deterministically, and the trace flags that step.
 

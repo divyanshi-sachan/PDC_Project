@@ -52,6 +52,42 @@ export function voyageEmbedder(opts: {
   };
 }
 
+/**
+ * Any OpenAI-format `/v1/embeddings` endpoint, e.g. the LiteLLM proxy (`model: "dp-embed"` -> Gemini embeddings).
+ * `kind` is ignored: no prefixes are added.
+ */
+export function openAiCompatibleEmbedder(opts: {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  fetchImpl?: FetchLike;
+  batchSize?: number;
+}): Embedder {
+  const f = opts.fetchImpl ?? fetch;
+  const batchSize = opts.batchSize ?? 64;
+  const base = opts.baseUrl.replace(/\/+$/, "");
+  return {
+    model: opts.model,
+    dim: EMBEDDING_DIM,
+    async embed(texts) {
+      const out: number[][] = [];
+      for (let i = 0; i < texts.length; i += batchSize) {
+        const batch = texts.slice(i, i + batchSize);
+        const res = await f(`${base}/v1/embeddings`, {
+          method: "POST",
+          headers: { "content-type": "application/json", authorization: `Bearer ${opts.apiKey}` },
+          body: JSON.stringify({ model: opts.model, input: batch, dimensions: EMBEDDING_DIM }),
+        });
+        if (!res.ok) throw new Error(`embeddings ${res.status}: ${await res.text()}`);
+        const json = (await res.json()) as { data: { embedding: number[]; index?: number }[] };
+        const sorted = [...json.data].sort((a, b) => (a.index ?? 0) - (b.index ?? 0)).map((d) => d.embedding);
+        out.push(...checkDims(opts.model, sorted, batch.length));
+      }
+      return out;
+    },
+  };
+}
+
 /** Local Ollama (e.g. `ollama pull qwen3-embedding:0.6b`, 1024-dim). No data leaves the machine. */
 export function ollamaEmbedder(opts: { baseUrl?: string; model?: string; fetchImpl?: FetchLike }): Embedder {
   const model = opts.model ?? "qwen3-embedding:0.6b";

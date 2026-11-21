@@ -1,0 +1,19 @@
+{
+  "name": "@dealpilot/agents",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testkit": "./src/testkit.ts"
+  },
+  "dependencies": {
+    "@dealpilot/db": "workspace:*",
+    "@dealpilot/finance": "workspace:*",
+    "@dealpilot/llm": "workspace:*",
+    "@dealpilot/market": "workspace:*",
+    "@dealpilot/shared": "workspace:*",
+    "@dealpilot/sources": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}

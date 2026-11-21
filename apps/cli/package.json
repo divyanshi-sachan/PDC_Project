@@ -4,12 +4,18 @@
   "private": true,
   "type": "module",
   "dependencies": {
+    "@dealpilot/agents": "workspace:*",
     "@dealpilot/auth": "workspace:*",
     "@dealpilot/db": "workspace:*",
     "@dealpilot/finance": "workspace:*",
+    "@dealpilot/graph": "workspace:*",
+    "@dealpilot/llm": "workspace:*",
+    "@dealpilot/market": "workspace:*",
     "@dealpilot/shared": "workspace:*",
     "@dealpilot/sources": "workspace:*",
     "@dealpilot/storage": "workspace:*",
-    "dotenv": "^18.0.10"
+    "@langchain/langgraph": "^1.7.5",
+    "dotenv": "^18.0.10",
+    "zod": "^4.6.7"
   }
 }

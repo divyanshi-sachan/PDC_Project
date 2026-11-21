@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
+  bigserial,
   boolean,
   customType,
   date,
@@ -200,4 +201,54 @@ export const cache = pgTable(
     createdAt: createdAt(),
   },
   (t) => [primaryKey({ columns: [t.namespace, t.key] })],
+);
+
+/* ------------------------------------------------------------------ chat */
+
+export const threads = pgTable(
+  "threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    /** Neon Auth user id (`sub` of the JWT). */
+    userId: text("user_id").notNull(),
+    title: text("title"),
+    createdAt: createdAt(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("threads_user_updated_idx").on(t.userId, t.updatedAt)],
+);
+
+export const messageRole = pgEnum("message_role", ["user", "assistant"]);
+export const messageStatus = pgEnum("message_status", ["queued", "running", "done", "failed"]);
+
+export const messages = pgTable(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    role: messageRole("role").notNull(),
+    text: text("text").notNull().default(""),
+    citations: jsonb("citations").notNull().default(sql`'[]'::jsonb`),
+    status: messageStatus("status").notNull().default("done"),
+    taskId: uuid("task_id").references(() => tasks.id),
+    createdAt: createdAt(),
+  },
+  (t) => [index("messages_thread_created_idx").on(t.threadId, t.createdAt)],
+);
+
+/** Append-only log of ChatEvents; the SSE endpoint replays from `Last-Event-ID` then tails it. */
+export const threadEvents = pgTable(
+  "thread_events",
+  {
+    id: bigserial("id", { mode: "number" }).primaryKey(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    messageId: uuid("message_id"),
+    event: jsonb("event").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index("thread_events_thread_id_idx").on(t.threadId, t.id)],
 );

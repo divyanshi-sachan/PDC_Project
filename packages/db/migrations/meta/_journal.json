@@ -36,6 +36,13 @@
       "when": 1794974545916,
       "tag": "0004_artifacts_drop_bytea",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795237606792,
+      "tag": "0005_chat_threads",
+      "breakpoints": true
     }
   ]
 }

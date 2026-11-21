@@ -1,0 +1,14 @@
+{
+  "name": "@dealpilot/llm",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@dealpilot/shared": "workspace:*",
+    "openai": "^7.62.0",
+    "zod": "^4.6.7"
+  }
+}

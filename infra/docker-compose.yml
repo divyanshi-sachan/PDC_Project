@@ -23,7 +23,13 @@ services:
     image: ghcr.io/berriai/litellm:main-stable
     command: ["--config", "/app/config.yaml", "--port", "4001"]
     ports: ["4001:4001"]
-    env_file: ../.env
+    # Deliberately NOT env_file: LiteLLM must never receive DATABASE_URL (it would create its own tables in it).
+    environment:
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY:?set in .env}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
     volumes: ["./litellm/config.yaml:/app/config.yaml:ro"]
     healthcheck:
       test:
