@@ -56,7 +56,7 @@ export async function selectPeers(
   const { data } = await llm.structured({
     node: "modeling.peers",
     group: "dp-producer",
-    system: loadPrompt("peers.v3"),
+    system: loadPrompt("peers.v4"),
     messages: [
       {
         role: "user",

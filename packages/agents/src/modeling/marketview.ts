@@ -1,5 +1,5 @@
 import { marketCap } from "@dealpilot/finance";
-import { type MarketClient, type PriceProvider, userPricePoint } from "@dealpilot/market";
+import { type FinnhubClient, type MarketClient, type PriceProvider, userPricePoint } from "@dealpilot/market";
 import type { Evidence } from "@dealpilot/shared";
 import type { EdgarClient } from "@dealpilot/sources";
 import { gatherShares } from "../research/shares.ts";
@@ -11,6 +11,8 @@ export interface MarketViewDeps {
   prices: PriceProvider;
   /** FMP client for profile / peers / Treasury yield. Profile and peers are best-effort. */
   fmp: Pick<MarketClient, "profile" | "peers" | "riskFreeRate">;
+  /** Optional Finnhub client: preferred for peers, and a profile/beta fallback for symbols FMP's plan rejects. */
+  finnhub?: Pick<FinnhubClient, "profile" | "beta" | "peers">;
   now?: () => Date;
 }
 
@@ -59,22 +61,43 @@ export function createMarketView(deps: MarketViewDeps): MarketApi {
     },
 
     async profile(symbol) {
+      // 1) FMP (allow-listed symbols only), 2) Finnhub (all US symbols), 3) EDGAR (name and SIC, no beta).
       try {
         return await deps.fmp.profile(symbol);
-      } catch {
-        // FMP's free plan rejects some symbols; fall back to EDGAR for name/industry (no vendor beta).
-        const c = await deps.edgar.company(symbol);
-        return {
-          companyName: c.name,
-          beta: null,
-          sector: null,
-          industry: c.sic_description ?? null,
-          evidence: edgarEvidence(symbol, now().toISOString()),
-        };
+      } catch {}
+      if (deps.finnhub) {
+        try {
+          const [p, b] = await Promise.all([
+            deps.finnhub.profile(symbol),
+            deps.finnhub.beta(symbol).catch(() => null),
+          ]);
+          return {
+            companyName: p.companyName,
+            beta: b?.beta ?? null,
+            sector: null,
+            industry: p.industry,
+            evidence: p.evidence,
+          };
+        } catch {}
       }
+      const c = await deps.edgar.company(symbol);
+      return {
+        companyName: c.name,
+        beta: null,
+        sector: null,
+        industry: c.sic_description ?? null,
+        evidence: edgarEvidence(symbol, now().toISOString()),
+      };
     },
 
     async peers(symbol) {
+      // Finnhub's peer list is US-focused; FMP's is mostly foreign tickers for large caps, so it is the backup.
+      if (deps.finnhub) {
+        try {
+          const r = await deps.finnhub.peers(symbol);
+          if (r.peers.length > 0) return r;
+        } catch {}
+      }
       try {
         return await deps.fmp.peers(symbol);
       } catch {

@@ -128,7 +128,7 @@ Each milestone ends with green offline tests and a short demo command.
 
 ### M2: Express API, worker, gateway, Research and Modeling agents (✅ done 2026-11-21)
 
-**Verified live:** `pnpm cli chat` (graph only) and `pnpm cli e2e` (real HTTP: auth → API → pg-boss → worker → LangGraph → SSE → stored messages). A first valuation takes 20–80 s and costs about $0.002; a follow-up recompute takes 1–10 s with no SEC or model reading. Beta now uses Damodaran industry betas. Known gaps: a live check of the Finnhub/Twelve Data adapters (no keys yet), a longer DCF horizon for high-growth companies (a 5-year fade to 2.5% undervalues them, e.g. MSFT ≈ $139 vs $484), peer quality when prices come only from FMP's allow-list, and pacing the free Gemini embedding quota when indexing a 10-K.
+**Verified live:** `pnpm cli chat` (graph only) and `pnpm cli e2e` (real HTTP: auth → API → pg-boss → worker → LangGraph → SSE → stored messages). A first valuation takes 20–80 s and costs about $0.002; a follow-up recompute takes 1–10 s with no SEC or model reading. Beta now uses Damodaran industry betas. Known gaps: Twelve Data live check (its key was rejected), a longer DCF horizon for high-growth companies (a 5-year fade to 2.5% undervalues them, e.g. MSFT ≈ $139 vs $484), pacing the free Gemini embedding quota when indexing a 10-K.
 
 - `apps/api` (chat API, auth-protected via `@dealpilot/auth`):
   - `POST /threads` and `GET /threads`

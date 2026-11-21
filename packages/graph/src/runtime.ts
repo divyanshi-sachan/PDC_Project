@@ -3,6 +3,7 @@ import { type Budget, createLlmClient, type LlmClient, type LlmUsage } from "@de
 import {
   cachedPriceProvider,
   chainPriceProviders,
+  createFinnhubClient,
   createMarketClient,
   type IndustryBetaTable,
   loadDamodaranBetas,
@@ -59,12 +60,20 @@ export function createRuntime(env: RuntimeEnv): Runtime {
   // (PRICE_PROVIDERS, default fmp → finnhub → twelvedata, skipping any provider without a key).
   const cache = memoryCache();
   const fmp = createMarketClient({ fmpApiKey: required(env, "FMP_API_KEY"), cache });
+  const finnhub = env.FINNHUB_API_KEY
+    ? createFinnhubClient({ apiKey: env.FINNHUB_API_KEY, cache })
+    : undefined;
   const { providers } = priceProvidersFromEnv(env, { fmp });
   const prices = cachedPriceProvider(chainPriceProviders(providers), cache);
   return {
     edgar,
     industryBetas: loadDamodaranBetas(),
-    market: createMarketView({ edgar, prices, fmp }),
+    market: createMarketView({
+      edgar,
+      prices,
+      fmp,
+      ...(finnhub ? { finnhub } : {}),
+    }),
     embedder: openAiCompatibleEmbedder({ baseUrl, apiKey, model: "dp-embed" }),
     maxCostUsd: Number(env.MAX_COST_PER_TASK_USD ?? 0.5),
     llmFor: (budget, onUsage) =>

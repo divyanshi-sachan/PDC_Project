@@ -113,7 +113,9 @@ There are also **two Python services**:
   - Shares outstanding come from SEC filings (`dei:EntityCommonStockSharesOutstanding`; fallbacks: balance-sheet count, then weighted-average diluted, each flagged).
   - Market cap is computed by `marketCap()` in `@dealpilot/finance` as price × SEC shares. Never use a vendor's market cap.
   - Store the price date and the share-count date, and flag a stale price.
-- **Price** goes through one `PriceProvider` chain (`PRICE_PROVIDERS`, default fmp → finnhub → twelvedata; providers without a key are skipped).
+- **Price** goes through one `PriceProvider` chain (`PRICE_PROVIDERS`, default finnhub → fmp → twelvedata; providers without a key are skipped).
+  - **Finnhub is the primary source** (verified live 2026-11-21): free key, quotes for every US symbol tried (incl. HPQ, DELL, QCOM, ORCL, IBM that FMP rejects), plus US-focused peers, profile and beta.
+  - The Twelve Data adapter is written but its key was rejected (401) when tested, so it is unverified.
   - **FMP's free plan serves only a fixed allow-list of about 87 symbols** and bars public display of its data, so it is a private-use convenience, not the core provider.
   - A **user-stated price** ("Value HPQ, the price is $38") always works and is labelled as provided by the user.
   - Free tiers are personal or internal use. Do not show vendor prices on a public page without checking the terms.

@@ -248,7 +248,7 @@ export function priceProvidersFromEnv(
   },
   deps: { fmp?: Pick<MarketClient, "quote">; fetch?: FetchLike; now?: () => Date },
 ): { providers: PriceProvider[]; skipped: string[] } {
-  const wanted = (env.PRICE_PROVIDERS ?? "fmp,finnhub,twelvedata")
+  const wanted = (env.PRICE_PROVIDERS ?? "finnhub,fmp,twelvedata")
     .split(",")
     .map((s) => s.trim().toLowerCase())
     .filter(Boolean);
