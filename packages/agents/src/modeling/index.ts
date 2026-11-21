@@ -1,11 +1,13 @@
 import { dilutedSharesEstimate } from "@dealpilot/finance";
 import type { LlmClient } from "@dealpilot/llm";
+import type { IndustryBetaTable } from "@dealpilot/market";
 import type { Evidence, Panel } from "@dealpilot/shared";
 import type { EdgarClient } from "@dealpilot/sources";
 import { gatherHistory } from "../research/history.ts";
 import { gatherPeerData } from "../research/peers.ts";
 import type { CompanyHistory } from "../research/types.ts";
 import { type AssumptionSet, baselineAssumptions, proposeAssumptions } from "./assumptions.ts";
+import { industryBeta, selectIndustry } from "./beta.ts";
 import { runComps, type SelectedPeer, selectPeers } from "./comps.ts";
 import { mergeOverrides, NO_OVERRIDES, type Overrides } from "./overrides.ts";
 import { buildPanel } from "./panel.ts";
@@ -14,6 +16,7 @@ import { summarizeHistory, UnsupportedCompanyError } from "./summary.ts";
 import { runValuation, ValuationError } from "./valuation.ts";
 
 export * from "./assumptions.ts";
+export * from "./beta.ts";
 export * from "./comps.ts";
 export * from "./marketview.ts";
 export * from "./overrides.ts";
@@ -55,6 +58,8 @@ export interface MarketApi {
 
 export interface ModelingDeps {
   llm: LlmClient;
+  /** Damodaran industry betas; when present, beta = relevered industry beta. */
+  industryBetas?: IndustryBetaTable;
   edgar: EdgarClient;
   market: MarketApi;
   /** Optional progress callback for long phases (peer gathering). */
@@ -97,8 +102,10 @@ export async function buildSnapshot(
     deps.market.riskFreeRate(),
   ]);
   const notes: string[] = [];
-  const beta = profile.beta ?? DEFAULT_BETA;
-  if (profile.beta === null) notes.push("Beta not available from the market data provider; assumed 1.0.");
+  let beta = profile.beta ?? DEFAULT_BETA;
+  let betaBasis: string | undefined =
+    profile.beta !== null ? "Company beta from the market data provider" : undefined;
+  const betaEvidence: Evidence[] = [];
 
   // Share count: SEC-reported (cover page) scaled by the dilution seen in the latest fiscal year.
   let dilutedSharesUsed: number | undefined;
@@ -127,6 +134,34 @@ export async function buildSnapshot(
     dilutedSharesUsed === undefined ? {} : { dilutedShares: dilutedSharesUsed },
   );
   const baseline = baselineAssumptions(summary, rf.tenYear);
+
+  // Beta: Damodaran industry beta relevered to this company's capital structure (preferred: less noisy than a
+  // single company regression), else the provider's company beta, else 1.0 — always labelled.
+  if (deps.industryBetas) {
+    try {
+      const pick = await selectIndustry(deps.llm, deps.industryBetas, {
+        name: profile.companyName,
+        sector: profile.sector,
+        industry: profile.industry,
+      });
+      const ib = industryBeta(deps.industryBetas, pick.industry, {
+        totalDebt: summary.totalDebt,
+        marketCap: quote.marketCap,
+        taxRate: baseline.taxRate,
+      });
+      beta = ib.beta;
+      betaBasis = ib.basis;
+      betaEvidence.push(deps.industryBetas.evidence(now.toISOString()));
+    } catch (e) {
+      notes.push(
+        `Industry beta unavailable (${e instanceof Error ? e.message.slice(0, 80) : "error"}); ${profile.beta !== null ? "using the provider's company beta" : "assuming 1.0"}.`,
+      );
+    }
+  }
+  if (betaBasis === undefined) {
+    betaBasis = "Assumed 1.0 (no beta available)";
+    notes.push("Beta not available from the market data provider; assumed 1.0.");
+  }
   const proposal = await proposeAssumptions({
     llm: deps.llm,
     summary,
@@ -203,7 +238,9 @@ export async function buildSnapshot(
         profile.evidence,
         rf.evidence,
         ...(quote.extra ? [quote.extra.sharesEvidence] : []),
+        ...betaEvidence,
       ],
+      betaBasis,
       ...(quote.extra
         ? {
             priceAsOf: quote.extra.priceAsOf,

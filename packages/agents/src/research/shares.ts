@@ -65,8 +65,11 @@ export async function gatherShares(
     };
   }
 
-  if (opts.fallbackDiluted) {
-    const f = opts.fallbackDiluted;
+  const fallback =
+    opts.fallbackDiluted ??
+    (await latest(edgar, ticker, "us-gaap:WeightedAverageNumberOfDilutedSharesOutstanding", now));
+  if (fallback) {
+    const f = fallback;
     return {
       shares: f.value,
       asOf: f.period.end,

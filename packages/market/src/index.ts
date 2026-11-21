@@ -1,5 +1,6 @@
 export * from "./cache.ts";
 export * from "./client.ts";
+export * from "./damodaran.ts";
 export * from "./errors.ts";
 export * from "./fmp.ts";
 export * from "./prices.ts";

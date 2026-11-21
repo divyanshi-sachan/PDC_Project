@@ -6,7 +6,9 @@ import { createRemoteJWKSet } from "jose";
 import { PgBoss } from "pg-boss";
 import { createApp } from "./server.ts";
 
-config({ path: [".env.local", ".env"], quiet: true });
+// Load the repo-root env files by absolute path so `pnpm --filter … start` works from any cwd.
+const root = new URL("../../../", import.meta.url).pathname;
+config({ path: [`${root}.env.local`, `${root}.env`], quiet: true });
 
 function required(name: string): string {
   const v = process.env[name];

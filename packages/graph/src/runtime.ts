@@ -4,6 +4,8 @@ import {
   cachedPriceProvider,
   chainPriceProviders,
   createMarketClient,
+  type IndustryBetaTable,
+  loadDamodaranBetas,
   memoryCache,
   priceProvidersFromEnv,
 } from "@dealpilot/market";
@@ -29,6 +31,8 @@ export interface RuntimeEnv {
 
 export interface Runtime {
   edgar: EdgarClient;
+  /** Damodaran US industry betas (committed snapshot). */
+  industryBetas: IndustryBetaTable;
   market: MarketApi;
   embedder: Embedder;
   /** Per-turn spending cap in USD. */
@@ -59,6 +63,7 @@ export function createRuntime(env: RuntimeEnv): Runtime {
   const prices = cachedPriceProvider(chainPriceProviders(providers), cache);
   return {
     edgar,
+    industryBetas: loadDamodaranBetas(),
     market: createMarketView({ edgar, prices, fmp }),
     embedder: openAiCompatibleEmbedder({ baseUrl, apiKey, model: "dp-embed" }),
     maxCostUsd: Number(env.MAX_COST_PER_TASK_USD ?? 0.5),

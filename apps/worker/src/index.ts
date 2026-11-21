@@ -23,7 +23,9 @@ import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { config } from "dotenv";
 import { PgBoss } from "pg-boss";
 
-config({ path: [".env.local", ".env"], quiet: true });
+// Load the repo-root env files by absolute path so `pnpm --filter … start` works from any cwd.
+const root = new URL("../../../", import.meta.url).pathname;
+config({ path: [`${root}.env.local`, `${root}.env`], quiet: true });
 
 const runtime = createRuntime(process.env);
 const { db, close: closeDb } = createDb(pooledDatabaseUrl(), { max: 4 });
@@ -91,6 +93,7 @@ async function processTurn(raw: unknown): Promise<void> {
       emit,
       budget,
       edgar: runtime.edgar,
+      industryBetas: runtime.industryBetas,
       market: runtime.market,
       embedder: runtime.embedder,
     },

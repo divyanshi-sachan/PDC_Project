@@ -31,6 +31,8 @@ export interface AnalysisSnapshot {
     sharesSource?: string;
     /** Diluted share count used for per-share value (SEC count scaled by fiscal-year dilution). */
     dilutedSharesUsed?: number;
+    /** How the beta was chosen (e.g. relevered Damodaran industry beta), shown beside the number. */
+    betaBasis?: string;
   };
   assumptions: AssumptionSet;
   /** True when the baseline was used because the model's proposal was unavailable. */

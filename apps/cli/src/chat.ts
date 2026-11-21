@@ -5,11 +5,9 @@
  */
 import { randomUUID } from "node:crypto";
 import { createDb } from "@dealpilot/db";
-import { buildGraph, runChatTurn } from "@dealpilot/graph";
-import { Budget, createLlmClient } from "@dealpilot/llm";
-import { createMarketClient } from "@dealpilot/market";
+import { buildGraph, createRuntime, runChatTurn } from "@dealpilot/graph";
+import { Budget } from "@dealpilot/llm";
 import type { ChatEvent, Panel } from "@dealpilot/shared";
-import { createEdgarClient, openAiCompatibleEmbedder } from "@dealpilot/sources";
 import { MemorySaver } from "@langchain/langgraph";
 
 const usd = (x: number) => (Math.abs(x) >= 1e9 ? `$${(x / 1e9).toFixed(1)}B` : `$${(x / 1e6).toFixed(0)}M`);
@@ -46,18 +44,16 @@ export async function chatLocal(messages: string[]) {
   const need = ["DATABASE_URL", "LITELLM_MASTER_KEY", "FMP_API_KEY"] as const;
   for (const k of need) if (!e[k]) throw new Error(`${k} missing in .env`);
 
-  const budget = new Budget(Number(e.MAX_COST_PER_TASK_USD ?? 0.5));
+  const runtime = createRuntime(e);
+  const budget = new Budget(runtime.maxCostUsd);
   const calls: string[] = [];
-  const baseUrl = e.LITELLM_BASE_URL ?? "http://localhost:4001";
-  const llm = createLlmClient({
-    baseUrl,
-    apiKey: e.LITELLM_MASTER_KEY as string,
+  const llm = runtime.llmFor(
     budget,
-    onUsage: (u) =>
+    (u) =>
       void calls.push(
         `${u.node}→${u.group} ${u.inputTokens}in/${u.outputTokens}out $${u.costUsd.toFixed(5)} ${u.latencyMs}ms${u.attempt > 1 ? ` (attempt ${u.attempt})` : ""}`,
       ),
-  });
+  );
   const { db, close } = createDb(e.DATABASE_URL as string, { max: 3 });
   const emit = async (ev: ChatEvent) => {
     if (ev.type === "step")
@@ -84,16 +80,10 @@ export async function chatLocal(messages: string[]) {
       db,
       emit,
       budget,
-      edgar: createEdgarClient({
-        baseUrl: e.EDGAR_SERVICE_URL ?? "http://localhost:8100",
-        ...(e.EDGAR_SERVICE_KEY ? { serviceKey: e.EDGAR_SERVICE_KEY } : {}),
-      }),
-      market: createMarketClient({ fmpApiKey: e.FMP_API_KEY as string }),
-      embedder: openAiCompatibleEmbedder({
-        baseUrl,
-        apiKey: e.LITELLM_MASTER_KEY as string,
-        model: "dp-embed",
-      }),
+      edgar: runtime.edgar,
+      industryBetas: runtime.industryBetas,
+      market: runtime.market,
+      embedder: runtime.embedder,
     },
     new MemorySaver(),
   );

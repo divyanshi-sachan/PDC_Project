@@ -191,6 +191,8 @@ export interface FakeModelOptions {
   routes: { match: string; out: Record<string, unknown> }[];
   peers?: string[];
   commentary?: string;
+  /** Damodaran industry the fake model picks (default: the first name offered). */
+  industry?: string;
 }
 
 /**
@@ -205,13 +207,17 @@ export function fakeModel(o: FakeModelOptions) {
       return { ticker: null, changes: null, question: null, reply: null, ...hit.out };
     }
     if (call.node === "modeling.assumptions") {
-      const json = call.user.slice(call.user.lastIndexOf("{"));
+      const json = call.user.split("Adjust only where you have a reason:\n")[1] ?? "{}";
       return JSON.parse(json);
     }
     if (call.node === "modeling.peers") {
       return {
         peers: (o.peers ?? []).map((t) => ({ ticker: t, rationale: `${t} sells comparable products.` })),
       };
+    }
+    if (call.node === "modeling.industry") {
+      const names = call.user.split("Industries:\n")[1]?.split("\n") ?? [];
+      return { industry: o.industry ?? names[0], rationale: "Closest business match." };
     }
     if (call.node === "respond.commentary") {
       return {

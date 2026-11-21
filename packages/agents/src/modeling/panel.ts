@@ -50,6 +50,17 @@ export function modelNotes(snapshot: AnalysisSnapshot, v: ValuationOutput, comps
       evidenceIds: [],
     });
   }
+  // Comps far from the market price usually mean the peer set is not comparable (or the data source only
+  // covered a few large companies), so say so instead of presenting the range as meaningful.
+  const impliedMid = comps.impliedPerShare?.median;
+  const priceNow = effectiveMarket(snapshot).price;
+  if (impliedMid !== undefined && priceNow > 0 && Math.abs(impliedMid / priceNow - 1) > 1) {
+    notes.push({
+      title: "Comps far from market price",
+      detail: `The trading-comps median (${impliedMid.toFixed(2)} per share) differs from the market price (${priceNow.toFixed(2)}) by more than 100%. The peers may not be comparable in size or business mix; review the peer list.`,
+      evidenceIds: [],
+    });
+  }
   const m = snapshot.market;
   if (m.sharesOutstanding !== undefined && m.priceAsOf && m.sharesAsOf) {
     const eff = effectiveMarket(snapshot);
@@ -107,7 +118,11 @@ export function buildPanel(
   const quoteEv = snapshot.market.evidence.find((e) => PRICE_SECTIONS.has(e.section ?? ""))?.id ?? null;
   const sharesEv = snapshot.market.evidence.find((e) => e.kind === "xbrl_fact")?.id ?? null;
   const day = (iso: string | undefined) => (iso ? iso.slice(0, 10) : "unknown date");
-  const betaEv = evidenceOf(snapshot, "fmp:profile")?.id ?? null;
+  const betaEv =
+    (snapshot.market.betaBasis?.startsWith("Damodaran")
+      ? evidenceOf(snapshot, "damodaran:industry-betas")
+      : evidenceOf(snapshot, "fmp:profile")
+    )?.id ?? null;
   const rfEv = evidenceOf(snapshot, "treasury:10y")?.id ?? null;
   const o = snapshot.overrides;
 
@@ -185,11 +200,11 @@ export function buildPanel(
     A(
       "beta",
       "Equity beta",
-      snapshot.market.beta,
+      o.beta ?? snapshot.market.beta,
       "ratio",
       o.beta !== null ? "assumption" : "market",
       betaEv,
-      o.beta !== null ? "User override" : null,
+      o.beta !== null ? "User override" : (snapshot.market.betaBasis ?? null),
     ),
     A(
       "risk_free",

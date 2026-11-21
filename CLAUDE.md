@@ -107,6 +107,24 @@ There are also **two Python services**:
   Neon's instant restore covers backups.
 - Secrets live in a server-side `.env` on EC2 (mode 600) or in SSM Parameter Store, and in Vercel env vars. Never put them in compose files or `render.yaml`.
 
+## Market data (decided 2026-11-21; see docs/research/reports/FMP free plan coverage.md)
+
+- **Own the shares, rent only the price.**
+  - Shares outstanding come from SEC filings (`dei:EntityCommonStockSharesOutstanding`; fallbacks: balance-sheet count, then weighted-average diluted, each flagged).
+  - Market cap is computed by `marketCap()` in `@dealpilot/finance` as price × SEC shares. Never use a vendor's market cap.
+  - Store the price date and the share-count date, and flag a stale price.
+- **Price** goes through one `PriceProvider` chain (`PRICE_PROVIDERS`, default fmp → finnhub → twelvedata; providers without a key are skipped).
+  - **FMP's free plan serves only a fixed allow-list of about 87 symbols** and bars public display of its data, so it is a private-use convenience, not the core provider.
+  - A **user-stated price** ("Value HPQ, the price is $38") always works and is labelled as provided by the user.
+  - Free tiers are personal or internal use. Do not show vendor prices on a public page without checking the terms.
+- **Beta:** Damodaran US industry beta (committed snapshot `packages/market/data/damodaran-betas-us.json`, refreshed each January with `scripts/damodaran/convert.py`). The model only *picks* the industry from the real list; code relevers the cash-corrected unlevered beta to the company D/E with `relevered()`. Fallbacks, always labelled: the provider company beta, then 1.0. Regression beta (`betaFromReturns()`) exists in finance but is not wired in yet. Cite Damodaran and show only the figures used.
+
+## Local development
+
+- `pnpm dev:edgar` and `pnpm dev:litellm` start the two Python services from the repo-root `.env`. LiteLLM is given only its own keys, never `DATABASE_URL`.
+- `node scripts/with-neon-branch.mjs m2-dev -- <command>` runs any command against a Neon dev branch without touching `.env`. Use it for DB tests and live runs; never run DB work against production first.
+- `pnpm cli chat "…"` runs the graph with the real services. `pnpm --filter @dealpilot/api start` and `pnpm --filter @dealpilot/worker start` run the API and worker. `pnpm cli e2e "…"` drives them over HTTP.
+
 ## Cost discipline
 
 - Default to the cheapest model that passes evals for each node. Use stronger models only where evals show
