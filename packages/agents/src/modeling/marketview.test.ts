@@ -111,7 +111,7 @@ describe("quote: market cap is computed, not fetched", () => {
       sharesSource: "cover_page",
       warnings: [],
     });
-    expect(q.extra?.sharesEvidence.accession).toMatch(/^0000\d{6}-\d{2}-000001$/);
+    expect(q.extra?.sharesEvidence.accession).toMatch(/^\d{10}-\d{2}-000001$/);
   });
 
   test("a user-stated price replaces the provider price and is labelled as the user's", async () => {

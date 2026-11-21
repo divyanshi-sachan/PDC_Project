@@ -1,6 +1,10 @@
 import {
+  type AnalysisSnapshot,
   answerFromFilings,
+  assemblePanel,
   buildSnapshot,
+  type Candidate,
+  composeMessage,
   computePanel,
   describeOverrides,
   formatAnalysisMessage,
@@ -8,10 +12,16 @@ import {
   indexLatestTenK,
   type MarketApi,
   type ModelingDeps,
+  type RepairDeps,
+  type ReviewOutput,
   recompute,
   routeMessage,
+  runReview,
   UnsupportedCompanyError,
   ValuationError,
+  verificationLine,
+  verifyAndRepair,
+  verifyFilingQuotes,
   writeCommentary,
 } from "@dealpilot/agents";
 import { chunks, type Db, eq, sql } from "@dealpilot/db";
@@ -29,6 +39,8 @@ export interface GraphDeps extends Omit<ModelingDeps, "progress"> {
   emit: (event: ChatEvent) => Promise<void>;
   budget?: Budget;
   market: MarketApi;
+  /** Verifier loop settings; `inject` is a test hook that corrupts the candidate (error-injection tests). */
+  repair?: Pick<RepairDeps, "inject" | "maxRepairs">;
 }
 
 /** User-facing explanation for expected failures; unexpected errors are rethrown. */
@@ -99,6 +111,61 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
     return (r[0]?.n ?? 0) > 0;
   };
 
+  /** Attach the review, run the independent Verifier with its repair loop, and publish the final panel. */
+  const finalize = async (
+    snapshot: AnalysisSnapshot,
+    review: ReviewOutput,
+    commentary: string | null,
+    changes: string[],
+    narrative: boolean,
+  ) => {
+    const panel = assemblePanel(snapshot, review);
+    const candidate: Candidate = {
+      panel,
+      commentary,
+      changes,
+      text: composeMessage(panel, changes, commentary),
+    };
+    const out = await step(
+      "verifier",
+      "Independently verifying figures, citations and consistency",
+      () =>
+        verifyAndRepair(
+          {
+            verifier: narrative ? { edgar: deps.edgar, llm: deps.llm } : {},
+            refetchHistory: (t) => gatherHistory(deps.edgar, t),
+            ...deps.repair,
+            onRound: async ({ round, open, repairing }) => {
+              await deps.emit({
+                type: "step",
+                stepId: `repair-${++stepCounter}`,
+                node: "repair",
+                status: "done",
+                label: `Repair round ${round}: ${open.length} defect${open.length === 1 ? "" : "s"} sent back to ${repairing.join(", ")}`,
+                detail: open
+                  .map((d) => d.detail)
+                  .join(" | ")
+                  .slice(0, 300),
+              });
+            },
+          },
+          { snapshot, candidate, review },
+        ),
+      (r) => verificationLine(r.report),
+    );
+    await deps.emit({ type: "panel", panel: out.candidate.panel });
+    const base = formatAnalysisMessage(out.candidate.panel, changes);
+    return {
+      snapshot: out.snapshot,
+      review,
+      result: {
+        text: `${out.candidate.text}\n\n${verificationLine(out.report)}`,
+        citations: base.citations,
+        panel: out.candidate.panel,
+      } satisfies TurnResult,
+    };
+  };
+
   /* ------------------------------------------------------------------ nodes */
 
   const route = async (s: TurnStateType) => {
@@ -159,14 +226,14 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
       await deps.emit({ type: "panel", panel });
       await indexing;
 
-      const base = formatAnalysisMessage(panel);
+      const review = await step(
+        "review",
+        "Forensic review and skeptic challenge",
+        () => runReview({ llm: deps.llm, db: deps.db, embedder: deps.embedder }, snapshot),
+        (r) => `${r.findings.length} findings`,
+      );
       const commentary = await writeCommentary(deps.llm, panel);
-      const result: TurnResult = {
-        text: commentary ? `${base.text}\n\n${commentary}` : base.text,
-        citations: base.citations,
-        panel,
-      };
-      return { snapshot, result };
+      return await finalize(snapshot, review, commentary, [], true);
     } catch (e) {
       const msg = explainError(e, ticker);
       if (!msg) throw e;
@@ -185,12 +252,13 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
         "Recomputing with the finance library (no filings re-read)",
         async () => recompute(snapshot, changes),
       );
-      await deps.emit({ type: "panel", panel: out.panel });
-      const base = formatAnalysisMessage(out.panel, describeOverrides(out.snapshot.overrides));
-      return {
-        snapshot: out.snapshot,
-        result: { text: base.text, citations: base.citations, panel: out.panel },
-      };
+      return await finalize(
+        out.snapshot,
+        s.review ?? { findings: [], evidence: {} },
+        null,
+        describeOverrides(out.snapshot.overrides),
+        false,
+      );
     } catch (e) {
       const msg = explainError(e, snapshot.ticker);
       if (!msg) throw e;
@@ -222,7 +290,12 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
           { cik: company.cik, companyName: company.name, question: r.question },
         ),
       );
-      return { result: { text: ans.text, citations: ans.citations, panel: null } };
+      const quotes = await verifyFilingQuotes(deps.edgar, ans.evidence);
+      const bad = quotes.defects.filter((d) => d.severity === "error");
+      const text = bad.length
+        ? `Verification failed: ${bad.length} quoted passage${bad.length === 1 ? "" : "s"} could not be found in the filing, so treat this answer as unverified.\n\n${ans.text}`
+        : ans.text;
+      return { result: { text, citations: ans.citations, panel: null } };
     } catch (e) {
       const msg = explainError(e, ticker);
       if (!msg) throw e;

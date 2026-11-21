@@ -61,6 +61,21 @@ export function formatAnalysisMessage(
       `- Trading comps (${n} peers): ${share(c.low)}–${share(c.high)} per share, median ${share(c.median)}.`,
     );
   else lines.push("- Trading comps: not enough comparable data for a range.");
+  const sc = (name: string) => panel.scenarios.find((s) => s.name === name);
+  const [bear, base, bull] = [sc("bear"), sc("base"), sc("bull")];
+  if (bear && base && bull)
+    lines.push(
+      `- Scenarios: bear ${share(bear.perShare)}, base ${share(base.perShare)}, bull ${share(bull.perShare)} per share.`,
+    );
+  if (panel.findings.length) {
+    const count = (sev: string) => panel.findings.filter((f) => f.severity === sev).length;
+    const parts = (["high", "medium", "low"] as const)
+      .filter((s) => count(s) > 0)
+      .map((s) => `${count(s)} ${s}`);
+    lines.push(
+      `- Forensic and skeptic review: ${parts.join(", ")} finding${panel.findings.length === 1 ? "" : "s"}.`,
+    );
+  }
   const flags = panel.risks.filter((r) => r.title !== "Data note").map((r) => r.title);
   const dataNotes = panel.risks.length - flags.length;
   if (flags.length || dataNotes) {
@@ -70,6 +85,12 @@ export function formatAnalysisMessage(
   }
   lines.push("Open the panel for the projection, sensitivity table, comps and every cited input.");
   return { text: lines.join("\n"), citations: headlineCitations(panel) };
+}
+
+/** Factual message plus optional commentary (the Verifier checks exactly this shape). */
+export function composeMessage(panel: Panel, changes: string[], commentary: string | null): string {
+  const base = formatAnalysisMessage(panel, changes).text;
+  return commentary ? `${base}\n\n${commentary}` : base;
 }
 
 const CommentarySchema = z.object({

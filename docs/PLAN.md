@@ -146,11 +146,16 @@ Each milestone ends with green offline tests and a short demo command.
 - `packages/graph` + agents: Orchestrator, Research (facts + evidence), and Modeling (tool calls into finance; peers by SIC, size and 10-K text similarity).
 - **Done when:** posting "Value Apple with a DCF and comps" to a thread streams agent steps over SSE and ends with a cited answer and a DCF + comps in state, at ≤ $0.05 on the free or budget stack. A follow-up "What if WACC is 9%?" recomputes with zero LLM reading.
 
-### M3: Verification loop, Forensic and Skeptic agents (≈1–1.5 weeks)
+### M3: Verification loop, Forensic and Skeptic agents (✅ done 2026-11-21)
 - A Verifier with a fresh context. It recomputes figures through finance, resolves citations to spans and checks the quotes support the claims, and runs integrity and consistency checks.
 - A defect schema, routed back to the owning agent with `maxRetries` per type. Unresolved defects are surfaced in the output.
 - Forensic agent: rule-based red flags first, then LLM reading of the notes. Skeptic agent: argues against assumptions, builds alternative scenarios, reruns sensitivities.
 - **Done when:** the error-injection test set (wrong number, fake citation, period mismatch) is caught and corrected.
+- **Built:**
+  - `packages/agents/src/verifier/`: recomputes the DCF and sensitivity grid from the stated assumptions with its own wiring of `@dealpilot/finance`; integrity identities (bridge, WACC > g, grid shape); citations re-fetched from SEC data (accession, period, unit, revenue value); message-vs-panel consistency; an advisory narrative check by a Sonnet-class model. `repair.ts` runs the verify → repair loop (max 2 rounds): `modeling` defects rebuild the panel from the snapshot, `research` defects re-read the filings, `respond` defects regenerate the message. Persisting errors become `unresolved` and are shown in the message and the panel.
+  - `forensic/`: 13 deterministic rules (accruals, cash conversion, receivables/DSO, inventory, margin z-score, tax rate, capex/D&A, leverage, dilution, restatements…) plus an evidence-grounded text stage (quotes must be verbatim). `skeptic/`: bear/base/bull scenarios computed by finance, plus a digit-free LLM challenge of the assumptions.
+  - Tests: `verifier.test.ts` and the graph test inject a wrong number, a fake citation, a period mismatch and a message/panel disagreement; each is caught, sent to its owner and fixed, and an unfixable defect is surfaced as unresolved.
+- **Known gaps:** the filing-text forensic stage needs the 10-K index (it reports "unavailable" when embeddings are rate-limited); follow-ups skip the SEC re-fetch of citations and reuse the first run's findings.
 
 ### M4: Deliverables and audit trail (≈1 week)
 - An ExcelJS workbook with live formulas, tabs for Inputs / Model / DCF / Comps / Sensitivity / Sources / Defects, and a LibreOffice parity test.

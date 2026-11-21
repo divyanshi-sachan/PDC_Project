@@ -33,6 +33,10 @@ function printPanel(p: Panel) {
     const cells = (p.sensitivity.values[r] ?? []).map((x) => `${x.toFixed(0)}`.padStart(8)).join("");
     console.log(`  │ ${(w * 100).toFixed(2)}% ${cells}`);
   }
+  for (const f of p.findings)
+    console.log(`  │ [${f.agent}/${f.severity}] ${f.title}: ${f.detail.slice(0, 160)}`);
+  for (const d of p.verification?.defects ?? [])
+    console.log(`  │ defect[${d.status}] ${d.type} (${d.ownerNode}): ${d.detail.slice(0, 160)}`);
   console.log(`  │ notes: ${p.risks.map((r) => r.title).join("; ") || "none"}`);
   for (const r of p.risks) if (r.title === "Data note") console.log(`  │   · ${r.detail.slice(0, 170)}`);
   console.log(

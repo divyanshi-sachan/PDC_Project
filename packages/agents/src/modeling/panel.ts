@@ -323,6 +323,10 @@ export function buildPanel(
     risks: modelNotes(snapshot, v, comps),
     evidence,
     formulaIds: [...new Set([...v.formulaIds, ...comps.formulaIds])].sort(),
+    // Filled in later by the verifier, forensic and skeptic agents.
+    verification: null,
+    findings: [],
+    scenarios: [],
   };
 }
 

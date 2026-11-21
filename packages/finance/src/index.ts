@@ -2,6 +2,7 @@ export * from "./bridge.ts";
 export * from "./comps.ts";
 export * from "./dcf.ts";
 export * from "./errors.ts";
+export * from "./forensic.ts";
 export * from "./marketdata.ts";
 export * from "./projection.ts";
 export * from "./ratios.ts";

@@ -11,7 +11,8 @@ export type DurationItem =
   | "incomeTaxExpense"
   | "interestExpense"
   | "dilutedShares"
-  | "basicShares";
+  | "basicShares"
+  | "operatingCashFlow";
 
 /** Balance-sheet (instant) items at fiscal year ends, newest first. */
 export type InstantItem =

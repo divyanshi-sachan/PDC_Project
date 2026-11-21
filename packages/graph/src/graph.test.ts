@@ -1,14 +1,15 @@
 import { randomUUID } from "node:crypto";
+import type { Candidate } from "@dealpilot/agents";
 import { company, fakeEdgar, fakeMarket, fakeModel } from "@dealpilot/agents/testkit";
 import type { Db } from "@dealpilot/db";
 import { type ChatEvent, ChatEventSchema, type Panel } from "@dealpilot/shared";
 import { fakeEmbedder } from "@dealpilot/sources";
 import { MemorySaver } from "@langchain/langgraph";
 import { describe, expect, test } from "vitest";
-import { buildGraph } from "./build.ts";
+import { buildGraph, type GraphDeps } from "./build.ts";
 import { runChatTurn } from "./run.ts";
 
-function setup() {
+function setup(repair?: GraphDeps["repair"]) {
   const edgar = fakeEdgar([
     company("TESTCO"),
     company("LOSSCO", { margin: -0.1 }),
@@ -44,7 +45,15 @@ function setup() {
   const events: ChatEvent[] = [];
   const emit = async (e: ChatEvent) => void events.push(e);
   const graph = buildGraph(
-    { llm: model.client, db: {} as Db, emit, edgar: edgar.client, market, embedder: fakeEmbedder() },
+    {
+      llm: model.client,
+      db: {} as Db,
+      emit,
+      edgar: edgar.client,
+      market,
+      embedder: fakeEmbedder(),
+      ...(repair ? { repair } : {}),
+    },
     new MemorySaver(),
   );
   const threadId = randomUUID();
@@ -67,7 +76,7 @@ function setup() {
 }
 
 const panelOf = (evs: ChatEvent[]): Panel | undefined =>
-  evs.find((e): e is Extract<ChatEvent, { type: "panel" }> => e.type === "panel")?.panel;
+  evs.findLast((e): e is Extract<ChatEvent, { type: "panel" }> => e.type === "panel")?.panel;
 
 describe("chat graph", () => {
   test("analysis → panel + cited message; every emitted event matches the shared schema", async () => {
@@ -91,8 +100,13 @@ describe("chat graph", () => {
     // the headline figure in the text is the panel's computed value, formatted by code
     expect(res.text).toContain(`$${panel.valuation.perShare.toFixed(2)}`);
     // commentary carries no digits (enforced by schema), so every figure in the message came from code
-    const commentary = res.text.split("\n\n").at(-1) ?? "";
+    const commentary = res.text.split("\n\n").at(-2) ?? "";
     expect(commentary).not.toMatch(/\d/);
+    // the independent verifier ran and passed on the clean path
+    expect(panel.verification?.summary.errorsOpen).toBe(0);
+    expect(panel.verification?.checks.every((c) => c.passed)).toBe(true);
+    expect(res.text).toMatch(/Independent verification: 4 of 4 checks passed\./);
+    expect(panel.scenarios.map((x) => x.name)).toEqual(["bear", "base", "bull"]);
   });
 
   test("a follow-up recomputes from the stored snapshot: no SEC calls, no market calls, only the routing model call", async () => {
@@ -147,5 +161,92 @@ describe("chat graph", () => {
     await expect(s.say("this message matches no fake route")).rejects.toThrow();
     expect(s.events.some((e) => e.type === "error")).toBe(true);
     expect(s.events.at(-1)?.type).toBe("done");
+  });
+
+  describe("error injection: the verifier catches it, routes it to the owner and the final deliverable is correct", () => {
+    const quarterly = (c: Candidate): Candidate => {
+      const a = c.panel.assumptions.find((x) => x.key === "revenue_base");
+      const ev = a?.evidenceId ? c.panel.evidence[a.evidenceId] : undefined;
+      if (!a || !ev) return c;
+      const id = ev.id.replace(/:(\d{4})-\d{2}-\d{2}:/, (_m, y: string) => `:${y}-10-01:`);
+      return {
+        ...c,
+        panel: {
+          ...c.panel,
+          evidence: { ...c.panel.evidence, [id]: { ...ev, id } },
+          assumptions: c.panel.assumptions.map((x) =>
+            x.key === "revenue_base" ? { ...x, evidenceId: id } : x,
+          ),
+        },
+      };
+    };
+    const cases: [string, (c: Candidate) => Candidate, string, string][] = [
+      [
+        "wrong number",
+        (c) => ({
+          ...c,
+          panel: {
+            ...c.panel,
+            valuation: { ...c.panel.valuation, perShare: c.panel.valuation.perShare * 1.1 },
+          },
+        }),
+        "calc_mismatch",
+        "modeling",
+      ],
+      [
+        "fake citation",
+        (c) => ({
+          ...c,
+          panel: {
+            ...c.panel,
+            assumptions: c.panel.assumptions.map((x) =>
+              x.key === "cash" ? { ...x, evidenceId: "xbrl:fake" } : x,
+            ),
+          },
+        }),
+        "citation_missing",
+        "research",
+      ],
+      ["period mismatch", quarterly, "period_mismatch", "research"],
+      [
+        "message disagrees with panel",
+        (c) => ({ ...c, text: c.text.replace("DCF value", "DCF worth") }),
+        "inconsistency",
+        "respond",
+      ],
+    ];
+
+    test.each(cases)("%s is caught and corrected", async (_name, corrupt, type, owner) => {
+      const clean = panelOf((await setup().say("Value TestCo with a DCF and comps")).events) as Panel;
+      const s = setup({ inject: (c, attempt) => (attempt === 0 ? corrupt(c) : c) });
+      const { res, events } = await s.say("Value TestCo with a DCF and comps");
+      const panel = panelOf(events) as Panel;
+      const found = panel.verification?.defects.find((d) => d.type === type);
+      expect(found?.ownerNode).toBe(owner);
+      expect(found?.status).toBe("fixed");
+      expect(panel.verification?.repairRounds).toBe(1);
+      expect(panel.verification?.summary.errorsOpen).toBe(0);
+      expect(panel.valuation.perShare).toBeCloseTo(clean.valuation.perShare, 9);
+      expect(res.text).toMatch(/found and corrected/);
+      expect(res.text).not.toMatch(/UNRESOLVED/);
+      expect(events.some((e) => e.type === "step" && e.node === "repair")).toBe(true);
+    });
+
+    test("a defect that cannot be repaired is surfaced as unresolved, never hidden", async () => {
+      const s = setup({
+        inject: (c) => ({
+          ...c,
+          panel: {
+            ...c.panel,
+            valuation: { ...c.panel.valuation, perShare: c.panel.valuation.perShare * 2 },
+          },
+        }),
+      });
+      const { res, events } = await s.say("Value TestCo with a DCF and comps");
+      const panel = panelOf(events) as Panel;
+      expect(panel.verification?.summary.unresolved).toBeGreaterThan(0);
+      expect(panel.verification?.repairRounds).toBe(2);
+      expect(res.text).toMatch(/UNRESOLVED/);
+    });
   });
 });

@@ -1,4 +1,4 @@
-import type { AnalysisSnapshot, Route } from "@dealpilot/agents";
+import type { AnalysisSnapshot, ReviewOutput, Route } from "@dealpilot/agents";
 import type { ChatTurnJob, Citation, Panel } from "@dealpilot/shared";
 import { Annotation } from "@langchain/langgraph";
 
@@ -23,6 +23,8 @@ export const TurnState = Annotation.Root({
   history: Annotation<HistoryMessage[]>(),
   route: Annotation<Route | null>(),
   snapshot: Annotation<AnalysisSnapshot | null>(),
+  /** Forensic + skeptic findings; persisted so follow-ups reuse them without re-reading filings. */
+  review: Annotation<ReviewOutput | null>(),
   result: Annotation<TurnResult | null>(),
 });
 

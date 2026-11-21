@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { EvidenceSchema } from "./facts.ts";
+import { FindingSchema, ScenarioSchema, VerificationReportSchema } from "./verification.ts";
 
 /* ------------------------------------------------------------------ assumptions */
 
@@ -83,6 +84,12 @@ export const PanelSchema = z.object({
   risks: z.array(z.object({ title: z.string(), detail: z.string(), evidenceIds: z.array(z.string()) })),
   evidence: z.record(z.string(), EvidenceSchema),
   formulaIds: z.array(z.string()),
+  /** Independent Verifier result (null until the verifier has run). */
+  verification: VerificationReportSchema.nullable().default(null),
+  /** Forensic and skeptic findings. */
+  findings: z.array(FindingSchema).default([]),
+  /** Bear / base / bull what-ifs from the deterministic model. */
+  scenarios: z.array(ScenarioSchema).default([]),
 });
 export type Panel = z.infer<typeof PanelSchema>;
 

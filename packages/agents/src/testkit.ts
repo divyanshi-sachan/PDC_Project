@@ -44,7 +44,7 @@ function fact(c: FakeCompany, concept: string, k: number, value: number): XbrlFa
     fiscal_year: Number(end.slice(0, 4)),
     fiscal_period: "FY",
     form: "10-K",
-    accession: `0000${c.cik.slice(-6)}-${end.slice(2, 4)}-000001`,
+    accession: `${c.cik}-${end.slice(2, 4)}-000001`,
     filed: dayBefore(end, -60),
     frame: null,
     restated: false,

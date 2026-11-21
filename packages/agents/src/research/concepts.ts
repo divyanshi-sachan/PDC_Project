@@ -31,6 +31,10 @@ export const SIMPLE_CONCEPTS: Record<
   interestExpense: ["InterestExpense", "InterestExpenseNonoperating", "InterestExpenseDebt"],
   dilutedShares: ["WeightedAverageNumberOfDilutedSharesOutstanding"],
   basicShares: ["WeightedAverageNumberOfSharesOutstandingBasic"],
+  operatingCashFlow: [
+    "NetCashProvidedByUsedInOperatingActivities",
+    "NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+  ],
   cash: [
     "CashAndCashEquivalentsAtCarryingValue",
     "CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
@@ -70,6 +74,7 @@ export const DURATION_ITEMS: readonly DurationItem[] = [
   "interestExpense",
   "dilutedShares",
   "basicShares",
+  "operatingCashFlow",
 ];
 
 export const INSTANT_ITEMS: readonly InstantItem[] = [
