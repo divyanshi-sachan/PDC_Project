@@ -4,7 +4,13 @@ import { z } from "zod";
 import { loadPrompt } from "../prompts.ts";
 import { type HistorySummary, recentMean, recentRevenueCagr, UnsupportedCompanyError } from "./summary.ts";
 
-export const HORIZON_YEARS = 5;
+/**
+ * Forecast length. Years 1–EXPLICIT_YEARS are where the model may adjust growth and margins; the remaining years
+ * are faded by code toward the terminal growth rate, so a high-growth company is not forced to drop to terminal
+ * growth after only five years (which systematically undervalues it).
+ */
+export const EXPLICIT_YEARS = 5;
+export const HORIZON_YEARS = 10;
 
 const clamp = (x: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, x));
 
@@ -59,13 +65,38 @@ export function baselineAssumptions(s: HistorySummary, riskFreeRate: number): As
   };
 }
 
+/**
+ * Expand the model's years-1–5 proposal into the full forecast: growth fades linearly from the year-5 rate to the
+ * terminal rate over the remaining years (the last forecast year equals terminal growth); margins hold at year 5.
+ */
+export function expandAssumptions<
+  T extends { revenueGrowth: number[]; ebitMargin: number[]; terminalGrowth: number },
+>(p: T): T {
+  const extra = HORIZON_YEARS - EXPLICIT_YEARS;
+  const g5 = p.revenueGrowth[EXPLICIT_YEARS - 1] as number;
+  const tail = linearFade({ start: g5, end: p.terminalGrowth, steps: extra + 1 }).value.slice(1);
+  const m5 = p.ebitMargin[EXPLICIT_YEARS - 1] as number;
+  return {
+    ...p,
+    revenueGrowth: [...p.revenueGrowth, ...tail],
+    ebitMargin: [...p.ebitMargin, ...Array.from({ length: extra }, () => m5)],
+  };
+}
+
+/** The baseline as the model sees it: years 1–5 only (code fades the rest). */
+const modelView = (b: AssumptionSet): AssumptionSet => ({
+  ...b,
+  revenueGrowth: b.revenueGrowth.slice(0, EXPLICIT_YEARS),
+  ebitMargin: b.ebitMargin.slice(0, EXPLICIT_YEARS),
+});
+
 /** Zod schema for the model's proposal: hard bounds + closeness to the filing-based baseline. */
 export function assumptionSetSchema(base: AssumptionSet) {
   const near = (b: number, tol: number) => (v: number) => Math.abs(v - b) <= tol;
   return z
     .object({
-      revenueGrowth: z.array(z.number().min(-0.3).max(0.6)).length(HORIZON_YEARS),
-      ebitMargin: z.array(z.number().min(0).max(0.7)).length(HORIZON_YEARS),
+      revenueGrowth: z.array(z.number().min(-0.3).max(0.6)).length(EXPLICIT_YEARS),
+      ebitMargin: z.array(z.number().min(0).max(0.7)).length(EXPLICIT_YEARS),
       taxRate: z.number().min(0.05).max(0.35),
       daPctRevenue: z.number().min(0).max(0.25),
       capexPctRevenue: z.number().min(0).max(0.35),
@@ -96,10 +127,10 @@ export function assumptionSetSchema(base: AssumptionSet) {
           });
         }
       });
-      if (v.terminalGrowth > (v.revenueGrowth[HORIZON_YEARS - 1] ?? 1) + 0.005) {
+      if (v.terminalGrowth > (v.revenueGrowth[EXPLICIT_YEARS - 1] ?? 1) + 0.005) {
         ctx.addIssue({
           code: "custom",
-          message: "terminalGrowth must not exceed the final-year revenue growth",
+          message: "terminalGrowth must not exceed the year-5 revenue growth",
         });
       }
     });
@@ -136,7 +167,7 @@ export async function proposeAssumptions(
   try {
     const { data } = await ctx.llm.structured({
       node: "modeling.assumptions",
-      group: "dp-producer",
+      group: "dp-producer-paid", // repeatable valuations: the free-tier rotation varies run to run
       system: loadPrompt("assumptions.v1"),
       messages: [
         {
@@ -149,17 +180,18 @@ export async function proposeAssumptions(
             describeHistory(ctx.summary),
             "",
             "Baseline assumptions (computed by code). Adjust only where you have a reason:",
-            JSON.stringify(ctx.baseline),
+            JSON.stringify(modelView(ctx.baseline)),
           ].join("\n"),
         },
       ],
       schema: assumptionSetSchema(ctx.baseline),
       schemaName: "set_assumptions",
-      schemaDescription: "Forecast assumptions for a 5-year DCF.",
+      schemaDescription:
+        "Forecast assumptions for years 1-5 of a 10-year DCF; code fades years 6-10 to terminal growth.",
       maxTokens: 1200,
-      temperature: 0.2,
+      temperature: 0,
     });
-    return { assumptions: data, usedFallback: false, note: null };
+    return { assumptions: expandAssumptions(data), usedFallback: false, note: null };
   } catch (e) {
     return {
       assumptions: ctx.baseline,

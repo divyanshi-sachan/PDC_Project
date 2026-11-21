@@ -31,7 +31,7 @@ export async function selectIndustry(
   });
   const { data } = await llm.structured({
     node: "modeling.industry",
-    group: "dp-producer",
+    group: "dp-producer-paid", // consistent pick: the industry choice moves WACC more than most assumptions
     system: loadPrompt("industry.v1"),
     messages: [
       {

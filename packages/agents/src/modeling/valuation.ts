@@ -16,7 +16,6 @@ import {
   wacc as waccFormula,
 } from "@dealpilot/finance";
 import type { AssumptionSet } from "./assumptions.ts";
-import { HORIZON_YEARS } from "./assumptions.ts";
 import type { HistorySummary } from "./summary.ts";
 
 export interface MarketInputs {
@@ -147,7 +146,7 @@ export function runValuation(i: ValuationInput): ValuationOutput {
   const bridge = track(enterpriseToEquity({ enterpriseValue: dcf.enterpriseValue, ...bridgeItems }));
   const perShare = track(perShareValue({ equityValue: bridge.equityValue, dilutedShares: s.dilutedShares }));
   const upside = m.price > 0 ? track(growthRate({ previous: m.price, current: perShare })) : null;
-  const dfs = track(discountFactors(discountRate, HORIZON_YEARS));
+  const dfs = track(discountFactors(discountRate, fcfs.length));
 
   // Sensitivity: value per share across WACC × terminal growth.
   const stepG = 0.005;

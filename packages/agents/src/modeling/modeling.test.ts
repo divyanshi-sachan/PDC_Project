@@ -8,6 +8,8 @@ import {
   baselineAssumptions,
   buildSnapshot,
   computePanel,
+  EXPLICIT_YEARS,
+  expandAssumptions,
   HORIZON_YEARS,
   mergeOverrides,
   NO_OVERRIDES,
@@ -101,12 +103,19 @@ describe("assumption proposals", () => {
     const s = summarizeHistory(await gatherHistory(edgar().client, "TESTCO"));
     const base = baselineAssumptions(s, 0.04);
     const schema = assumptionSetSchema(base);
-    expect(schema.safeParse(base).success).toBe(true);
-    expect(schema.safeParse({ ...base, revenueGrowth: base.revenueGrowth.map((g) => g + 0.2) }).success).toBe(
+    // The model proposes years 1–5 only; code fades years 6–10.
+    const view = {
+      ...base,
+      revenueGrowth: base.revenueGrowth.slice(0, EXPLICIT_YEARS),
+      ebitMargin: base.ebitMargin.slice(0, EXPLICIT_YEARS),
+    };
+    expect(schema.safeParse(view).success).toBe(true);
+    expect(schema.safeParse(base).success).toBe(false); // a full 10-year array is the wrong shape
+    expect(schema.safeParse({ ...view, revenueGrowth: view.revenueGrowth.map((g) => g + 0.2) }).success).toBe(
       false,
     );
     expect(
-      schema.safeParse({ ...base, terminalGrowth: 0.035, revenueGrowth: [0.1, 0.09, 0.08, 0.07, 0.02] })
+      schema.safeParse({ ...view, terminalGrowth: 0.035, revenueGrowth: [0.1, 0.09, 0.08, 0.07, 0.02] })
         .success,
     ).toBe(false);
   });
@@ -130,7 +139,7 @@ describe("assumption proposals", () => {
 });
 
 describe("runValuation", () => {
-  const a: AssumptionSet = {
+  const a: AssumptionSet = expandAssumptions({
     revenueGrowth: [0.1, 0.09, 0.08, 0.06, 0.04],
     ebitMargin: [0.25, 0.25, 0.26, 0.26, 0.27],
     taxRate: 0.25,
@@ -141,7 +150,7 @@ describe("runValuation", () => {
     equityRiskPremium: 0.05,
     preTaxCostOfDebt: 0.05,
     rationale: { growth: "", margins: "", other: "" },
-  };
+  });
 
   async function summary() {
     return summarizeHistory(await gatherHistory(edgar().client, "TESTCO"));
@@ -306,5 +315,125 @@ describe("snapshot, panel and recompute", () => {
     );
     expect(snap.market.beta).toBe(1);
     expect(snap.notes.join(" ")).toMatch(/Beta not available/);
+  });
+});
+
+describe("10-year horizon", () => {
+  const five = {
+    revenueGrowth: [0.12, 0.11, 0.1, 0.09, 0.08],
+    ebitMargin: [0.3, 0.3, 0.3, 0.3, 0.3],
+    terminalGrowth: 0.025,
+  };
+
+  test("code fades years 6–10 linearly from the year-5 rate to terminal growth; margins hold", () => {
+    const e = expandAssumptions(five);
+    expect(e.revenueGrowth).toHaveLength(HORIZON_YEARS);
+    expect(e.revenueGrowth.slice(0, EXPLICIT_YEARS)).toEqual(five.revenueGrowth); // the model's years are untouched
+    // 8.0% → 2.5% over 5 more steps: 6.9%, 5.8%, 4.7%, 3.6%, 2.5%
+    [0.069, 0.058, 0.047, 0.036, 0.025].forEach((x, k) => {
+      expect(e.revenueGrowth[EXPLICIT_YEARS + k]).toBeCloseTo(x, 12);
+    });
+    expect(e.ebitMargin.slice(EXPLICIT_YEARS).every((m) => m === 0.3)).toBe(true);
+  });
+
+  test("the final forecast year grows at the terminal rate, so the Gordon step has no growth cliff", () => {
+    const e = expandAssumptions(five);
+    expect(e.revenueGrowth.at(-1)).toBeCloseTo(five.terminalGrowth, 12);
+  });
+
+  test("matches an independent hand calculation over 10 years", async () => {
+    const s = summarizeHistory(await gatherHistory(edgar().client, "TESTCO"));
+    const e = expandAssumptions({
+      ...five,
+      taxRate: 0.25,
+      daPctRevenue: 0.03,
+      capexPctRevenue: 0.04,
+      nwcPctOfRevenueChange: 0.06,
+      equityRiskPremium: 0.05,
+      preTaxCostOfDebt: 0.05,
+      rationale: { growth: "", margins: "", other: "" },
+    });
+    const v = runValuation({
+      summary: s,
+      market: { price: 20, marketCap: 2e9, beta: 1.2, riskFreeRate: 0.04 },
+      assumptions: e,
+      waccOverride: 0.09,
+    });
+    const ref = referenceDcf({
+      revenue0: s.latestRevenue,
+      growth: e.revenueGrowth,
+      margin: e.ebitMargin,
+      tax: 0.25,
+      da: 0.03,
+      capex: 0.04,
+      nwc: 0.06,
+      wacc: 0.09,
+      g: 0.025,
+      debt: s.totalDebt,
+      cash: s.cashAndInvestments,
+      shares: s.dilutedShares,
+    });
+    expect(v.projection).toHaveLength(10);
+    expect(v.enterpriseValue).toBeCloseTo(ref.ev, 3);
+    expect(v.perShare).toBeCloseTo(ref.perShare, 9);
+  });
+
+  test("a high-growth company is worth more over 10 years than when forced to terminal growth after 5", async () => {
+    const s = summarizeHistory(await gatherHistory(edgar().client, "TESTCO"));
+    const base = {
+      taxRate: 0.25,
+      daPctRevenue: 0.03,
+      capexPctRevenue: 0.04,
+      nwcPctOfRevenueChange: 0.06,
+      equityRiskPremium: 0.05,
+      preTaxCostOfDebt: 0.05,
+      rationale: { growth: "", margins: "", other: "" },
+    };
+    const market = { price: 20, marketCap: 2e9, beta: 1.2, riskFreeRate: 0.04 };
+    const tenYear = runValuation({
+      summary: s,
+      market,
+      assumptions: expandAssumptions({ ...five, ...base }),
+      waccOverride: 0.09,
+    });
+    // Old behaviour: only 5 explicit years, then straight to the terminal rate.
+    const fiveYear = runValuation({
+      summary: s,
+      market,
+      assumptions: { ...five, ...base },
+      waccOverride: 0.09,
+    });
+    expect(tenYear.perShare).toBeGreaterThan(fiveYear.perShare);
+    // A company already at terminal growth gains nothing from the extra years' growth.
+    const flat = {
+      revenueGrowth: [0.025, 0.025, 0.025, 0.025, 0.025],
+      ebitMargin: [0.3, 0.3, 0.3, 0.3, 0.3],
+      terminalGrowth: 0.025,
+    };
+    const a10 = runValuation({
+      summary: s,
+      market,
+      assumptions: expandAssumptions({ ...flat, ...base }),
+      waccOverride: 0.09,
+    }).perShare;
+    const a5 = runValuation({
+      summary: s,
+      market,
+      assumptions: { ...flat, ...base },
+      waccOverride: 0.09,
+    }).perShare;
+    expect(a10).toBeCloseTo(a5, 6);
+  });
+
+  test("the baseline fade runs to terminal growth in year 10 and the panel shows 10 projected years", async () => {
+    const snap = await buildSnapshot(
+      { llm: fakeModel({ routes: [], peers: [] }).client, edgar: edgar().client, market: market() },
+      "TESTCO",
+    );
+    const panel = computePanel(snap);
+    expect(panel.projection).toHaveLength(10);
+    expect(panel.projection.at(-1)?.year).toBe(2036);
+    expect(panel.assumptions.filter((x) => x.key.startsWith("revenue_growth_y"))).toHaveLength(10);
+    expect(snap.assumptions.revenueGrowth.at(-1)).toBeCloseTo(snap.assumptions.terminalGrowth, 12);
   });
 });

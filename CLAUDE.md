@@ -121,6 +121,12 @@ There are also **two Python services**:
   - Free tiers are personal or internal use. Do not show vendor prices on a public page without checking the terms.
 - **Beta:** Damodaran US industry beta (committed snapshot `packages/market/data/damodaran-betas-us.json`, refreshed each January with `scripts/damodaran/convert.py`). The model only *picks* the industry from the real list; code relevers the cash-corrected unlevered beta to the company D/E with `relevered()`. Fallbacks, always labelled: the provider company beta, then 1.0. Regression beta (`betaFromReturns()`) exists in finance but is not wired in yet. Cite Damodaran and show only the figures used.
 
+## Valuation model (decided 2026-11-21)
+
+- **10-year DCF.** The model proposes growth and margins for years 1–5 only (bounded and checked against a filing-based baseline); **code fades growth linearly from the year-5 rate to terminal growth over years 6–10**, and margins hold. A 5-year horizon forced high-growth companies to terminal growth too early and undervalued them (Microsoft at a 9% WACC: $163 with 5 years, $223–243 with 10).
+- **Repeatability.** The assumptions and industry-beta steps run on the paid model at temperature 0 (about $0.001 per run), because the free-tier rotation changed WACC and growth from run to run. Everything else that can use free tiers still does.
+- Typical result: terminal value is about 50–60% of EV. A large gap to the market price is flagged, not hidden.
+
 ## Local development
 
 - `pnpm dev:edgar` and `pnpm dev:litellm` start the two Python services from the repo-root `.env`. LiteLLM is given only its own keys, never `DATABASE_URL`.
