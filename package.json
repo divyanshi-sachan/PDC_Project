@@ -16,7 +16,8 @@
     "cli": "tsx apps/cli/src/index.ts",
     "db:generate": "drizzle-kit generate --config packages/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config packages/db/drizzle.config.ts",
-    "gen:edgar": "pnpm dlx --package openapi-typescript@7.13.0 --package typescript@5.9 openapi-typescript services/edgar/openapi.json -o packages/sources/src/edgar/schema.gen.ts"
+    "gen:edgar": "pnpm dlx --package openapi-typescript@7.13.0 --package typescript@5.9 openapi-typescript services/edgar/openapi.json -o packages/sources/src/edgar/schema.gen.ts",
+    "dev:edgar": "node scripts/dev-edgar.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.8",

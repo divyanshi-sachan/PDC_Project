@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "edgar-service",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/dev-edgar.mjs"],
+      "port": 8100
+    }
+  ]
+}
