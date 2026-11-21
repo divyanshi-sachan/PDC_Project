@@ -140,18 +140,21 @@ describe("finnhubPriceProvider", () => {
 });
 
 describe("twelveDataPriceProvider", () => {
-  test("parses the string price and uses header auth", async () => {
+  test("parses the quote's close and trading date and uses header auth", async () => {
     let auth = "";
     const p = twelveDataPriceProvider({
       apiKey: "SECRET",
       now: NOW,
       fetch: async (_u, init) => {
         auth = String(((init?.headers ?? {}) as Record<string, string>).Authorization);
-        return json({ price: "195.45000" });
+        // Shape captured live on 2026-11-21 (trimmed): the close is a string, datetime is a date.
+        return json({ symbol: "HPQ", close: "27.96000", datetime: "2026-11-20", is_market_open: false });
       },
     });
-    const pt = await p.price("AAPL");
-    expect(pt.price).toBeCloseTo(195.45, 9);
+    const pt = await p.price("HPQ");
+    expect(pt.price).toBeCloseTo(27.96, 9);
+    expect(pt.asOf).toBe("2026-11-20T00:00:00.000Z");
+    expect(pt.evidence.section).toBe("twelvedata:quote");
     expect(auth).toBe("apikey SECRET");
     expect(JSON.stringify(pt)).not.toMatch(/SECRET/);
   });

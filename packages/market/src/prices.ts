@@ -130,13 +130,15 @@ export function finnhubPriceProvider(opts: {
 }
 
 const TwelveDataPrice = z.union([
-  z.object({ price: z.coerce.number() }),
+  z.object({ close: z.coerce.number(), datetime: z.string() }),
   z.object({ status: z.literal("error"), code: z.number().optional(), message: z.string().optional() }),
 ]);
 
 /**
- * Twelve Data `/price` (free Basic key; header auth). Price only, no timestamp, so `asOf` is retrieval time.
- * NOTE: written from the public API docs; not yet verified live (no key at the time of writing).
+ * Twelve Data `/quote` (free Basic key; header auth): the latest close and its trading date. Verified live
+ * 2026-11-21 (AAPL, HPQ, DELL, QCOM; an unknown symbol returns 404). `/price` is not used: it includes
+ * after-hours trades, so it differs from the official close the other providers report.
+ * `datetime` is a date, so `asOf` is that date at 00:00 UTC (day-level precision).
  */
 export function twelveDataPriceProvider(opts: {
   apiKey: string;
@@ -148,7 +150,7 @@ export function twelveDataPriceProvider(opts: {
   return {
     name: "twelvedata",
     async price(symbol) {
-      const url = `https://api.twelvedata.com/price?symbol=${encodeURIComponent(symbol)}`;
+      const url = `https://api.twelvedata.com/quote?symbol=${encodeURIComponent(symbol)}`;
       let res: Response;
       try {
         res = await f(url, { headers: { Authorization: `apikey ${opts.apiKey}` } });
@@ -170,18 +172,20 @@ export function twelveDataPriceProvider(opts: {
               : "not_found";
         throw new MarketDataError(code, `twelvedata: ${parsed.data.message?.slice(0, 80) ?? "error"}`);
       }
-      if (!(parsed.data.price > 0))
+      if (!(parsed.data.close > 0))
         throw new MarketDataError("not_found", `twelvedata has no price for ${symbol}`);
       const t = iso(now());
       return {
         symbol,
-        price: parsed.data.price,
-        asOf: t,
+        price: parsed.data.close,
+        asOf: /^\d{4}-\d{2}-\d{2}/.test(parsed.data.datetime)
+          ? `${parsed.data.datetime.slice(0, 10)}T00:00:00.000Z`
+          : t,
         source: "twelvedata",
         evidence: marketEvidence({
-          id: `market:twelvedata:price:${symbol}:${t.slice(0, 10)}`,
-          url: `https://api.twelvedata.com/price?symbol=${symbol}`,
-          section: "twelvedata:price",
+          id: `market:twelvedata:quote:${symbol}:${t.slice(0, 10)}`,
+          url: `https://api.twelvedata.com/quote?symbol=${symbol}`,
+          section: "twelvedata:quote",
           retrievedAt: t,
         }),
       };

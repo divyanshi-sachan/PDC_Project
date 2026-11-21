@@ -42,8 +42,10 @@ export function baselineAssumptions(s: HistorySummary, riskFreeRate: number): As
       `${s.ticker} has a negative average operating margin; a DCF is not meaningful without a turnaround thesis.`,
     );
   }
-  const terminalGrowth = Math.min(0.025, Math.max(0, riskFreeRate));
   const g0 = clamp(recentRevenueCagr(s.rows) ?? 0.05, -0.05, 0.25);
+  // Terminal growth: 2.5%, capped by the risk-free rate and by the company's own recent growth (a shrinking or
+  // flat business is not assumed to grow forever faster than it has), and never below 0%.
+  const terminalGrowth = Math.max(0, Math.min(0.025, riskFreeRate, g0));
   const growth = linearFade({ start: g0, end: terminalGrowth, steps: HORIZON_YEARS }).value;
   const m = clamp(margin, 0.01, 0.6);
   return {
@@ -127,10 +129,16 @@ export function assumptionSetSchema(base: AssumptionSet) {
           });
         }
       });
-      if (v.terminalGrowth > (v.revenueGrowth[EXPLICIT_YEARS - 1] ?? 1) + 0.005) {
+      // Terminal growth may not exceed the year-5 growth. Exception: when the baseline itself has growth rising
+      // toward its terminal rate (a shrinking company fading up to 0%), terminal growth may equal the baseline's.
+      const g5 = v.revenueGrowth[EXPLICIT_YEARS - 1] ?? 1;
+      const baseG5 = base.revenueGrowth[EXPLICIT_YEARS - 1] ?? g5;
+      const baselineRising = base.terminalGrowth > baseG5 + 0.005;
+      const limit = Math.max(g5 + 0.005, baselineRising ? base.terminalGrowth : Number.NEGATIVE_INFINITY);
+      if (v.terminalGrowth > limit) {
         ctx.addIssue({
           code: "custom",
-          message: "terminalGrowth must not exceed the year-5 revenue growth",
+          message: `terminalGrowth must not exceed the year-5 revenue growth (${g5.toFixed(3)})`,
         });
       }
     });
@@ -196,7 +204,7 @@ export async function proposeAssumptions(
     return {
       assumptions: ctx.baseline,
       usedFallback: true,
-      note: `Model-proposed assumptions unavailable (${e instanceof Error ? e.message.slice(0, 120) : "error"}); using filing-based baseline.`,
+      note: `Model-proposed assumptions unavailable (${e instanceof Error ? e.message.slice(0, 400) : "error"}); using filing-based baseline.`,
     };
   }
 }

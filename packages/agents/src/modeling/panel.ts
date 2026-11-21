@@ -12,7 +12,13 @@ const evidenceOf = (snapshot: AnalysisSnapshot, section: string): Evidence | und
   snapshot.market.evidence.find((e) => e.section === section);
 
 /** Evidence sections that identify a share-price source. */
-const PRICE_SECTIONS = new Set(["fmp:quote", "finnhub:quote", "twelvedata:price", "user:price"]);
+const PRICE_SECTIONS = new Set([
+  "fmp:quote",
+  "finnhub:quote",
+  "twelvedata:quote",
+  "twelvedata:price",
+  "user:price",
+]);
 
 const DAY_MS = 86_400_000;
 

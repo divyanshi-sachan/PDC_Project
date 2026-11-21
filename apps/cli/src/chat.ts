@@ -34,6 +34,7 @@ function printPanel(p: Panel) {
     console.log(`  │ ${(w * 100).toFixed(2)}% ${cells}`);
   }
   console.log(`  │ notes: ${p.risks.map((r) => r.title).join("; ") || "none"}`);
+  for (const r of p.risks) if (r.title === "Data note") console.log(`  │   · ${r.detail.slice(0, 170)}`);
   console.log(
     `  └ ${p.assumptions.length} assumptions, ${Object.keys(p.evidence).length} evidence items, formulas: ${p.formulaIds.join(", ")}`,
   );

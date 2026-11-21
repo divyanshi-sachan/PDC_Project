@@ -437,3 +437,45 @@ describe("10-year horizon", () => {
     expect(snap.assumptions.revenueGrowth.at(-1)).toBeCloseTo(snap.assumptions.terminalGrowth, 12);
   });
 });
+
+describe("slow and shrinking companies", () => {
+  async function baselineFor(growth: number) {
+    const e = fakeEdgar([company("SLOW", { growth })]);
+    const s = summarizeHistory(await gatherHistory(e.client, "SLOW"));
+    return { s, base: baselineAssumptions(s, 0.0492) };
+  }
+
+  test("terminal growth never exceeds the company's own recent growth, and is never negative", async () => {
+    const shrink = await baselineFor(-0.03);
+    expect(shrink.base.terminalGrowth).toBe(0);
+    const slow = await baselineFor(0.01);
+    expect(slow.base.terminalGrowth).toBeCloseTo(0.01, 6);
+    const fast = await baselineFor(0.15);
+    expect(fast.base.terminalGrowth).toBeCloseTo(0.025, 12); // capped at 2.5%
+  });
+
+  test("the baseline always passes its own validation (so a good model answer is never rejected)", async () => {
+    for (const g of [-0.05, -0.03, 0, 0.01, 0.04, 0.15]) {
+      const { base } = await baselineFor(g);
+      const view = {
+        ...base,
+        revenueGrowth: base.revenueGrowth.slice(0, EXPLICIT_YEARS),
+        ebitMargin: base.ebitMargin.slice(0, EXPLICIT_YEARS),
+      };
+      expect(assumptionSetSchema(base).safeParse(view).success, `growth ${g}`).toBe(true);
+    }
+  });
+
+  test("a shrinking company still gets a full valuation, ending at 0% terminal growth", async () => {
+    const { s, base } = await baselineFor(-0.03);
+    const v = runValuation({
+      summary: s,
+      market: { price: 10, marketCap: 1e9, beta: 1, riskFreeRate: 0.0492 },
+      assumptions: base,
+      waccOverride: 0.09,
+    });
+    expect(base.revenueGrowth.at(-1)).toBeCloseTo(0, 12);
+    expect(v.projection).toHaveLength(10);
+    expect(v.perShare).toBeGreaterThan(0);
+  });
+});
