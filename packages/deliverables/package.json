@@ -1,0 +1,22 @@
+{
+  "name": "@dealpilot/deliverables",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./testkit": "./src/fixture.ts"
+  },
+  "dependencies": {
+    "@dealpilot/finance": "workspace:*",
+    "@dealpilot/shared": "workspace:*",
+    "docx": "^9.16.0",
+    "exceljs": "^4.4.0"
+  },
+  "devDependencies": {
+    "@dealpilot/agents": "workspace:*",
+    "@dealpilot/llm": "workspace:*",
+    "hyperformula": "^3.5.0",
+    "jszip": "^3.10.2"
+  }
+}

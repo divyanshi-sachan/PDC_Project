@@ -19,15 +19,18 @@ import {
 import { buildGraph, createRuntime, runChatTurn } from "@dealpilot/graph";
 import { Budget, type LlmUsage } from "@dealpilot/llm";
 import { CHAT_TURN_QUEUE, type ChatEvent, ChatTurnJobSchema } from "@dealpilot/shared";
+import { createArtifactStore } from "@dealpilot/storage";
 import { PostgresSaver } from "@langchain/langgraph-checkpoint-postgres";
 import { config } from "dotenv";
 import { PgBoss } from "pg-boss";
+import { makeDeliver } from "./deliver.ts";
 
 // Load the repo-root env files by absolute path so `pnpm --filter … start` works from any cwd.
 const root = new URL("../../../", import.meta.url).pathname;
 config({ path: [`${root}.env.local`, `${root}.env`], quiet: true });
 
 const runtime = createRuntime(process.env);
+const store = createArtifactStore();
 const { db, close: closeDb } = createDb(pooledDatabaseUrl(), { max: 4 });
 
 // pg-boss and the LangGraph checkpointer need session features → direct (non-pooled) connection.
@@ -96,6 +99,7 @@ async function processTurn(raw: unknown): Promise<void> {
       industryBetas: runtime.industryBetas,
       market: runtime.market,
       embedder: runtime.embedder,
+      deliver: makeDeliver({ db, store, taskId, messageId: assistantMessageId }),
     },
     checkpointer,
   );

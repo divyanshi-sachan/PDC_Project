@@ -241,7 +241,7 @@ pnpm cli analyze --ticker AAPL --task "standalone DCF + comps"
 | **M1**    | Monorepo + edgar-service (edgartools) + evidence store, deterministic finance package with tests |
 | **M2** ✅  | LangGraph.js orchestrator + Research and Modeling agents, end to end for one ticker              |
 | **M3** ✅  | Verification loop with defect routing, plus the Forensic and Skeptic agents                      |
-| **M4**    | Excel workbook, deal memo, audit trail                                                           |
+| **M4** ✅  | Excel workbook, deal memo, audit trail                                                           |
 | **M5**    | Eval harness (BankerToolBench, SECQUE, FailSafeQA, Fin-RATE) with cost and latency tracking      |
 | **M6**    | Next.js chat app + deliverable panel, AWS EC2 + Vercel deployment                            |
 

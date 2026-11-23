@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@dealpilot/agents": "workspace:*",
     "@dealpilot/db": "workspace:*",
+    "@dealpilot/deliverables": "workspace:*",
     "@dealpilot/graph": "workspace:*",
     "@dealpilot/llm": "workspace:*",
     "@dealpilot/shared": "workspace:*",
@@ -17,5 +17,9 @@
   },
   "scripts": {
     "start": "tsx src/index.ts"
+  },
+  "devDependencies": {
+    "@dealpilot/agents": "workspace:*",
+    "jszip": "^3.10.2"
   }
 }

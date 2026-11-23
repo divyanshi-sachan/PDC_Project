@@ -157,9 +157,15 @@ Each milestone ends with green offline tests and a short demo command.
   - Tests: `verifier.test.ts` and the graph test inject a wrong number, a fake citation, a period mismatch and a message/panel disagreement; each is caught, sent to its owner and fixed, and an unfixable defect is surfaced as unresolved.
 - **Known gaps:** the filing-text forensic stage needs the 10-K index (it reports "unavailable" when embeddings are rate-limited); follow-ups skip the SEC re-fetch of citations and reuse the first run's findings.
 
-### M4: Deliverables and audit trail (≈1 week)
+### M4: Deliverables and audit trail (✅ done 2026-11-23)
 - An ExcelJS workbook with live formulas, tabs for Inputs / Model / DCF / Comps / Sensitivity / Sources / Defects, and a LibreOffice parity test.
 - A deal memo (Markdown → `.docx`) with evidence footnotes, plus an audit-trail export (JSON + timeline).
+- **Built (`packages/deliverables`):**
+  - `buildWorkbook(panel)`: tabs Summary · Inputs · Model · DCF · Comps · Sensitivity · Sources · Review · Defects. Inputs are blue hard-codes with source and evidence id; projection, WACC, terminal value, equity bridge and every sensitivity cell are formulas (`NPV` based, so they work in Excel, LibreOffice and HyperFormula). Each formula cell also carries a cached result from `@dealpilot/finance`. An unverified or defective panel is flagged on the Summary and Defects tabs.
+  - `buildMemo(panel)`: `.docx` assembled by code from the panel (figures are formatted values, not model text), with a footnote per cited filing fact or market-data source and the verification status first. Only the digit-free commentary is model-written.
+  - `buildAuditTrail(...)`: JSON plus a Markdown timeline (steps, model calls and cost, inputs with provenance, formulas, verification result) and a SHA-256 fingerprint of the panel shared by all three files.
+  - Wiring: the graph calls an injected `deliver` hook after verification and emits an `artifacts` chat event; the worker (`apps/worker/src/deliver.ts`) stores the four files under `tasks/<taskId>/` in Neon Object Storage, records `artifacts` and `defects` rows, and the existing `GET /artifacts/:id` serves presigned downloads. A failed export never fails the turn. Locally: `DEALPILOT_OUT=out pnpm cli chat "Value Cisco"` writes the files to disk.
+- **Parity test:** recalculates the workbook with HyperFormula and compares the DCF outputs, projection, discount factors and all 25 sensitivity cells with the panel (tolerance 1e-9); also checks that editing an input reprices the model. A real Cisco workbook was recalculated the same way (209 formula cells, 0 mismatches). LibreOffice is not installed here, so the CI LibreOffice parity run is still open.
 
 ### M5: Evaluation harness (≈1–1.5 weeks)
 - An `evals/` runner with `--estimate`, `compare`, and the live-run guard. Adapters for BTB, SECQUE, FailSafeQA and Fin-RATE, plus the internal slices.

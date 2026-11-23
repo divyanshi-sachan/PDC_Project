@@ -4,7 +4,10 @@
  * Run against a dev branch: node scripts/with-neon-branch.mjs m2-dev -- pnpm cli chat "Value Apple"
  */
 import { randomUUID } from "node:crypto";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createDb } from "@dealpilot/db";
+import { buildAuditTrail, buildMemo, buildWorkbook, type LlmCallRecord } from "@dealpilot/deliverables";
 import { buildGraph, createRuntime, runChatTurn } from "@dealpilot/graph";
 import { Budget } from "@dealpilot/llm";
 import type { ChatEvent, Panel } from "@dealpilot/shared";
@@ -52,15 +55,25 @@ export async function chatLocal(messages: string[]) {
   const runtime = createRuntime(e);
   const budget = new Budget(runtime.maxCostUsd);
   const calls: string[] = [];
-  const llm = runtime.llmFor(
-    budget,
-    (u) =>
-      void calls.push(
-        `${u.node}→${u.group} ${u.inputTokens}in/${u.outputTokens}out $${u.costUsd.toFixed(5)} ${u.latencyMs}ms${u.attempt > 1 ? ` (attempt ${u.attempt})` : ""}`,
-      ),
-  );
+  const records: LlmCallRecord[] = [];
+  const events: ChatEvent[] = [];
+  const llm = runtime.llmFor(budget, (u) => {
+    records.push({
+      node: u.node,
+      model: u.model,
+      group: u.group,
+      inputTokens: u.inputTokens,
+      outputTokens: u.outputTokens,
+      costUsd: u.costUsd,
+      latencyMs: u.latencyMs,
+    });
+    calls.push(
+      `${u.node}→${u.group} ${u.inputTokens}in/${u.outputTokens}out $${u.costUsd.toFixed(5)} ${u.latencyMs}ms${u.attempt > 1 ? ` (attempt ${u.attempt})` : ""}`,
+    );
+  });
   const { db, close } = createDb(e.DATABASE_URL as string, { max: 3 });
   const emit = async (ev: ChatEvent) => {
+    events.push(ev);
     if (ev.type === "step")
       console.log(
         `  ${ev.status === "started" ? "▸" : ev.status === "done" ? "✓" : "✗"} [${ev.node}] ${ev.label}${ev.detail ? ` — ${ev.detail}` : ""}`,
@@ -89,6 +102,34 @@ export async function chatLocal(messages: string[]) {
       industryBetas: runtime.industryBetas,
       market: runtime.market,
       embedder: runtime.embedder,
+      // Local export: set DEALPILOT_OUT=<dir> to write the xlsx / docx / audit trail to disk.
+      ...(e.DEALPILOT_OUT
+        ? {
+            deliver: async ({ panel, request, commentary }) => {
+              const dir = e.DEALPILOT_OUT as string;
+              mkdirSync(dir, { recursive: true });
+              const t = panel.ticker;
+              const audit = buildAuditTrail({
+                panel,
+                request,
+                events,
+                llmCalls: records,
+                generatedAt: new Date(),
+              });
+              const files = [
+                [`${t}-dcf-model.xlsx`, await buildWorkbook(panel), "xlsx"],
+                [`${t}-valuation-memo.docx`, await buildMemo(panel, { commentary }), "docx"],
+                [`${t}-audit-trail.json`, audit.json, "json"],
+                [`${t}-audit-trail.md`, audit.markdown, "md"],
+              ] as const;
+              return files.map(([name, body, kind]) => {
+                writeFileSync(join(dir, name), body);
+                console.log(`  📄 wrote ${join(dir, name)}`);
+                return { id: name, kind, filename: name, sizeBytes: body.length };
+              });
+            },
+          }
+        : {}),
     },
     new MemorySaver(),
   );

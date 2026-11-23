@@ -9,7 +9,7 @@ import { describe, expect, test } from "vitest";
 import { buildGraph, type GraphDeps } from "./build.ts";
 import { runChatTurn } from "./run.ts";
 
-function setup(repair?: GraphDeps["repair"]) {
+function setup(repair?: GraphDeps["repair"], deliver?: GraphDeps["deliver"]) {
   const edgar = fakeEdgar([
     company("TESTCO"),
     company("LOSSCO", { margin: -0.1 }),
@@ -53,6 +53,7 @@ function setup(repair?: GraphDeps["repair"]) {
       market,
       embedder: fakeEmbedder(),
       ...(repair ? { repair } : {}),
+      ...(deliver ? { deliver } : {}),
     },
     new MemorySaver(),
   );
@@ -247,6 +248,35 @@ describe("chat graph", () => {
       expect(panel.verification?.summary.unresolved).toBeGreaterThan(0);
       expect(panel.verification?.repairRounds).toBe(2);
       expect(res.text).toMatch(/UNRESOLVED/);
+    });
+  });
+
+  describe("deliverables", () => {
+    test("the verified panel is handed to deliver and the files are announced before done", async () => {
+      const seen: Panel[] = [];
+      const s = setup(undefined, async ({ panel }) => {
+        seen.push(panel);
+        return [{ id: "a1", kind: "xlsx", filename: "TESTCO-dcf-model.xlsx", sizeBytes: 10 }];
+      });
+      const { events } = await s.say("Value TestCo with a DCF and comps");
+      expect(seen).toHaveLength(1);
+      expect(seen[0]?.verification).not.toBeNull(); // delivered only after verification
+      const types = events.map((e) => e.type);
+      expect(types.indexOf("artifacts")).toBeGreaterThan(types.indexOf("panel"));
+      expect(types.indexOf("artifacts")).toBeLessThan(types.indexOf("done"));
+      for (const e of events) expect(ChatEventSchema.safeParse(e).success).toBe(true);
+    });
+
+    test("a failing export never fails the turn", async () => {
+      const s = setup(undefined, async () => {
+        throw new Error("storage down");
+      });
+      const { res, events } = await s.say("Value TestCo with a DCF and comps");
+      expect(res.text).toMatch(/DCF value/);
+      expect(events.some((e) => e.type === "artifacts")).toBe(false);
+      expect(events.some((e) => e.type === "step" && e.node === "deliverable" && e.status === "failed")).toBe(
+        true,
+      );
     });
   });
 });

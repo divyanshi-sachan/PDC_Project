@@ -27,7 +27,7 @@ import {
 import { chunks, type Db, eq, sql } from "@dealpilot/db";
 import type { Budget } from "@dealpilot/llm";
 import { MarketDataError, PriceUnavailableError } from "@dealpilot/market";
-import type { ChatEvent } from "@dealpilot/shared";
+import type { ArtifactRef, ChatEvent, Panel } from "@dealpilot/shared";
 import { EdgarServiceError, type Embedder } from "@dealpilot/sources";
 import { type BaseCheckpointSaver, END, START, StateGraph } from "@langchain/langgraph";
 import { type TurnResult, TurnState, type TurnStateType } from "./state.ts";
@@ -41,6 +41,8 @@ export interface GraphDeps extends Omit<ModelingDeps, "progress"> {
   market: MarketApi;
   /** Verifier loop settings; `inject` is a test hook that corrupts the candidate (error-injection tests). */
   repair?: Pick<RepairDeps, "inject" | "maxRepairs">;
+  /** Build and store the downloadable deliverables for a verified panel (worker: xlsx, docx, audit trail). */
+  deliver?: (input: { panel: Panel; request: string; commentary: string | null }) => Promise<ArtifactRef[]>;
 }
 
 /** User-facing explanation for expected failures; unexpected errors are rethrown. */
@@ -118,6 +120,7 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
     commentary: string | null,
     changes: string[],
     narrative: boolean,
+    request: string,
   ) => {
     const panel = assemblePanel(snapshot, review);
     const candidate: Candidate = {
@@ -154,6 +157,20 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
       (r) => verificationLine(r.report),
     );
     await deps.emit({ type: "panel", panel: out.candidate.panel });
+    if (deps.deliver) {
+      const deliver = deps.deliver;
+      try {
+        const items = await step(
+          "deliverable",
+          "Building the Excel workbook, memo and audit trail",
+          () => deliver({ panel: out.candidate.panel, request, commentary: out.candidate.commentary }),
+          (r) => `${r.length} files`,
+        );
+        if (items.length) await deps.emit({ type: "artifacts", items });
+      } catch {
+        // The valuation is already delivered; a failed export is reported by the failed step, not fatal.
+      }
+    }
     const base = formatAnalysisMessage(out.candidate.panel, changes);
     return {
       snapshot: out.snapshot,
@@ -233,7 +250,7 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
         (r) => `${r.findings.length} findings`,
       );
       const commentary = await writeCommentary(deps.llm, panel);
-      return await finalize(snapshot, review, commentary, [], true);
+      return await finalize(snapshot, review, commentary, [], true, s.job.text);
     } catch (e) {
       const msg = explainError(e, ticker);
       if (!msg) throw e;
@@ -258,6 +275,7 @@ export function buildGraph(deps: GraphDeps, checkpointer: BaseCheckpointSaver) {
         null,
         describeOverrides(out.snapshot.overrides),
         false,
+        s.job.text,
       );
     } catch (e) {
       const msg = explainError(e, snapshot.ticker);

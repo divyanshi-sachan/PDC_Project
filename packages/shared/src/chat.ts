@@ -102,7 +102,17 @@ export const CitationSchema = z.object({
 });
 export type Citation = z.infer<typeof CitationSchema>;
 
+/** A downloadable deliverable (fetched through `GET /artifacts/:id`, which redirects to a presigned URL). */
+export const ArtifactRefSchema = z.object({
+  id: z.string(),
+  kind: z.enum(["xlsx", "docx", "md", "json"]),
+  filename: z.string(),
+  sizeBytes: z.number().int().nonnegative(),
+});
+export type ArtifactRef = z.infer<typeof ArtifactRefSchema>;
+
 export const ChatEventSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("artifacts"), items: z.array(ArtifactRefSchema) }),
   z.object({
     type: z.literal("step"),
     stepId: z.string(),
